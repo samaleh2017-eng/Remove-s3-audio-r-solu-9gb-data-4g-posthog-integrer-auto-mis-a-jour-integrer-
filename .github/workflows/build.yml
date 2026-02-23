@@ -96,6 +96,8 @@ jobs:
 
       - name: Build Rust native modules with MSVC
         shell: pwsh
+        env:
+          CARGO_TARGET_DIR: D:\ct
         run: |
           # Find Visual Studio installation (GitHub Actions uses Enterprise)
           $vsPath = if (Test-Path "C:\Program Files\Microsoft Visual Studio\2022\Enterprise") {
@@ -129,7 +131,7 @@ jobs:
           $modules = @("global-key-listener", "audio-recorder", "text-writer", "active-application", "selected-text-reader", "browser-url-reader")
 
           foreach ($module in $modules) {
-            $sourcePath = "native\target\x86_64-pc-windows-msvc\release\$module.exe"
+            $sourcePath = "D:\ct\x86_64-pc-windows-msvc\release\$module.exe"
             $destPath = "rust-binaries\$module.exe"
 
             if (Test-Path $sourcePath) {
