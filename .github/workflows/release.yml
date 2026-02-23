@@ -83,7 +83,7 @@ jobs:
             dist/*.dmg
             dist/*.zip
             dist/*.blockmap
-            dist/*.yml
+            dist/latest-mac.yml
           retention-days: 5
 
   build-windows:
@@ -118,10 +118,20 @@ jobs:
 
       - name: Build native modules for Windows
         shell: bash
+        env:
+          CARGO_TARGET_DIR: D:\ct
         run: |
           cd native
           cargo build --release --workspace --target x86_64-pc-windows-msvc
           cd ..
+
+      - name: Copy native binaries to expected location
+        shell: bash
+        run: |
+          mkdir -p native/target/x86_64-pc-windows-msvc/release
+          cp /d/ct/x86_64-pc-windows-msvc/release/*.exe native/target/x86_64-pc-windows-msvc/release/ 2>/dev/null || true
+          cp /d/ct/release/*.exe native/target/x86_64-pc-windows-msvc/release/ 2>/dev/null || true
+          ls -la native/target/x86_64-pc-windows-msvc/release/
 
       - name: Build Electron app
         env:
@@ -147,7 +157,7 @@ jobs:
           path: |
             dist/*.exe
             dist/*.blockmap
-            dist/*.yml
+            dist/latest.yml
           retention-days: 5
 
   release:
@@ -182,10 +192,10 @@ jobs:
             artifacts/macos-build/*.dmg
             artifacts/macos-build/*.zip
             artifacts/macos-build/*.blockmap
-            artifacts/macos-build/*.yml
+            artifacts/macos-build/latest-mac.yml
             artifacts/windows-build/*.exe
             artifacts/windows-build/*.blockmap
-            artifacts/windows-build/*.yml
+            artifacts/windows-build/latest.yml
           body: |
             ## Ito ${{ steps.version.outputs.tag }}
             

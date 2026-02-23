@@ -48,10 +48,20 @@ jobs:
 
       - name: Build native modules for Windows
         shell: bash
+        env:
+          CARGO_TARGET_DIR: D:\ct
         run: |
           cd native
           cargo build --release --workspace --target x86_64-pc-windows-msvc
           cd ..
+
+      - name: Copy native binaries to expected location
+        shell: bash
+        run: |
+          mkdir -p native/target/x86_64-pc-windows-msvc/release
+          cp /d/ct/x86_64-pc-windows-msvc/release/*.exe native/target/x86_64-pc-windows-msvc/release/ 2>/dev/null || true
+          cp /d/ct/release/*.exe native/target/x86_64-pc-windows-msvc/release/ 2>/dev/null || true
+          ls -la native/target/x86_64-pc-windows-msvc/release/
 
       - name: Build Electron app
         env:
