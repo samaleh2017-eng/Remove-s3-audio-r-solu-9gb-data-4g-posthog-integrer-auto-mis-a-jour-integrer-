@@ -1,0 +1,588 @@
+import { ItoMode } from '@/app/generated/ito_pb'
+import { voiceInputService } from './voiceInputService'
+import { recordingStateNotifier } from './recordingStateNotifier'
+import { itoStreamController } from './itoStreamController'
+import { TextInserter } from './text/TextInserter'
+import { interactionManager } from './interactions/InteractionManager'
+import { contextGrabber, ContextData } from './context/ContextGrabber'
+import { GrammarRulesService } from './grammar/GrammarRulesService'
+import { getAdvancedSettings } from './store'
+import log from 'electron-log'
+import { preventAppNap, allowAppNap } from './appNap'
+import { timingCollector, TimingEventName } from './timing/TimingCollector'
+import { SonioxStreamingService } from './soniox/SonioxStreamingService'
+import { sonioxTempKeyManager } from './soniox/SonioxTempKeyManager'
+import { audioRecorderService } from '../media/audio'
+import { itoHttpClient } from '../clients/itoHttpClient'
+
+export class ItoSessionManager {
+  private readonly MINIMUM_AUDIO_DURATION_MS = 100
+  private readonly SONIOX_CONNECT_TIMEOUT_MS = 10_000
+  private readonly SONIOX_MAX_PENDING_BYTES = 512 * 1024
+
+  private textInserter = new TextInserter()
+  private streamResponsePromise: Promise<{
+    response: any
+    audioBuffer: Buffer
+    sampleRate: number
+  }> | null = null
+  private grammarRulesService = new GrammarRulesService('')
+
+  private sonioxService: SonioxStreamingService | null = null
+  private isSonioxMode = false
+  private currentMode: ItoMode = ItoMode.TRANSCRIBE
+  private sonioxAudioHandler: ((chunk: Buffer) => void) | null = null
+  private sonioxContext: ContextData | null = null
+  private sonioxSessionGeneration = 0
+  private sonioxSessionActive = false
+
+  public async startSession(mode: ItoMode) {
+    console.log('[itoSessionManager] Starting session with mode:', mode)
+    this.currentMode = mode
+
+    let interactionId = interactionManager.getCurrentInteractionId()
+    if (interactionId) {
+      console.log(
+        '[itoSessionManager] Reusing existing interaction ID:',
+        interactionId,
+      )
+      interactionManager.adoptInteractionId(interactionId)
+    } else {
+      interactionId = interactionManager.initialize()
+    }
+
+    const { llm } = getAdvancedSettings()
+    const isSoniox = llm?.asrProvider === 'soniox'
+
+    if (isSoniox) {
+      await this.startSonioxSession(mode)
+    } else {
+      await this.startGrpcSession(mode)
+    }
+
+    return interactionId
+  }
+
+  private async startGrpcSession(mode: ItoMode) {
+    this.isSonioxMode = false
+
+    const started = await itoStreamController.initialize(mode)
+    if (!started) {
+      log.error('[itoSessionManager] Failed to initialize itoStreamController')
+      return
+    }
+
+    this.streamResponsePromise = itoStreamController.startGrpcStream()
+    voiceInputService.startAudioRecording()
+    itoStreamController.setMode(mode)
+    recordingStateNotifier.notifyRecordingStarted(mode)
+    preventAppNap()
+
+    this.fetchAndSendContext().catch(error => {
+      log.error('[itoSessionManager] Failed to fetch/send context:', error)
+    })
+
+    timingCollector.startInteraction()
+    timingCollector.startTiming(TimingEventName.INTERACTION_ACTIVE)
+  }
+
+  private async startSonioxSession(mode: ItoMode) {
+    this.isSonioxMode = true
+    this.sonioxSessionActive = true
+    const generation = ++this.sonioxSessionGeneration
+
+    const pendingChunks: Buffer[] = []
+    let pendingBytes = 0
+    let sonioxReady = false
+
+    this.sonioxAudioHandler = (chunk: Buffer) => {
+      if (sonioxReady && this.sonioxService) {
+        this.sonioxService.sendAudio(chunk)
+      } else if (pendingBytes < this.SONIOX_MAX_PENDING_BYTES) {
+        pendingChunks.push(chunk)
+        pendingBytes += chunk.length
+      }
+    }
+    audioRecorderService.on('audio-chunk', this.sonioxAudioHandler)
+
+    voiceInputService.startAudioRecording()
+    recordingStateNotifier.notifyRecordingStarted(mode)
+    preventAppNap()
+
+    try {
+      const connectWithTimeout = async () => {
+        const tempKey = await sonioxTempKeyManager.getKey()
+
+        if (generation !== this.sonioxSessionGeneration) {
+          console.log(
+            '[itoSessionManager] Soniox session was cancelled during key fetch, aborting',
+          )
+          return false
+        }
+
+        this.sonioxService = new SonioxStreamingService()
+        this.sonioxService.on('error', (error: Error) => {
+          console.error(
+            '[itoSessionManager] Soniox streaming error:',
+            error.message,
+          )
+          this.handleSonioxStreamError(error)
+        })
+        await this.sonioxService.start(tempKey)
+
+        if (generation !== this.sonioxSessionGeneration) {
+          console.log(
+            '[itoSessionManager] Soniox session was cancelled during connect, cleaning up',
+          )
+          this.sonioxService.cancel()
+          this.sonioxService = null
+          return false
+        }
+
+        return true
+      }
+
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error('Soniox connection timed out')),
+          this.SONIOX_CONNECT_TIMEOUT_MS,
+        ),
+      )
+
+      const connected = await Promise.race([connectWithTimeout(), timeout])
+
+      if (connected) {
+        sonioxReady = true
+        for (const chunk of pendingChunks) {
+          this.sonioxService!.sendAudio(chunk)
+        }
+        pendingChunks.length = 0
+        console.log(
+          '[itoSessionManager] Soniox connected, buffered chunks flushed',
+        )
+      }
+    } catch (error) {
+      log.error('[itoSessionManager] Failed to start Soniox session:', error)
+      this.sonioxService = null
+    }
+
+    this.gatherAndCacheContext(mode).catch(error => {
+      log.error(
+        '[itoSessionManager] Failed to gather context for Soniox:',
+        error,
+      )
+    })
+
+    timingCollector.startInteraction()
+    timingCollector.startTiming(TimingEventName.INTERACTION_ACTIVE)
+  }
+
+  private async gatherAndCacheContext(mode: ItoMode) {
+    console.log('[itoSessionManager] Gathering context for Soniox mode...')
+    const context = await contextGrabber.gatherContext(mode)
+    this.sonioxContext = context
+
+    const { grammarServiceEnabled } = getAdvancedSettings()
+    if (grammarServiceEnabled) {
+      const cursorContext = await timingCollector.timeAsync(
+        TimingEventName.GRAMMAR_SERVICE,
+        async () => await contextGrabber.getCursorContextForGrammar(),
+      )
+      this.grammarRulesService = new GrammarRulesService(cursorContext)
+    }
+  }
+
+  private async fetchAndSendContext() {
+    console.log('[itoSessionManager] Gathering context...')
+
+    const context = await contextGrabber.gatherContext(
+      itoStreamController.getCurrentMode(),
+    )
+
+    await itoStreamController.scheduleConfigUpdate(context)
+
+    const { grammarServiceEnabled } = getAdvancedSettings()
+    if (grammarServiceEnabled) {
+      const cursorContext = await timingCollector.timeAsync(
+        TimingEventName.GRAMMAR_SERVICE,
+        async () => await contextGrabber.getCursorContextForGrammar(),
+      )
+      this.grammarRulesService = new GrammarRulesService(cursorContext)
+    }
+  }
+
+  public setMode(mode: ItoMode) {
+    this.currentMode = mode
+
+    if (this.isSonioxMode) {
+      recordingStateNotifier.notifyRecordingStarted(mode)
+      return
+    }
+
+    itoStreamController.setMode(mode)
+    recordingStateNotifier.notifyRecordingStarted(mode)
+  }
+
+  public async cancelSession() {
+    if (this.isSonioxMode) {
+      this.sonioxSessionActive = false
+      this.sonioxSessionGeneration++
+
+      this.sonioxService?.cancel()
+      this.sonioxService = null
+      if (this.sonioxAudioHandler) {
+        audioRecorderService.off('audio-chunk', this.sonioxAudioHandler)
+        this.sonioxAudioHandler = null
+      }
+      await voiceInputService.stopAudioRecording()
+      recordingStateNotifier.notifyRecordingStopped()
+      timingCollector.clearInteraction()
+      interactionManager.clearCurrentInteraction()
+      this.cleanupSonioxState()
+      allowAppNap()
+      return
+    }
+
+    const responsePromise = this.streamResponsePromise
+    this.streamResponsePromise = null
+
+    timingCollector.clearInteraction()
+    itoStreamController.cancelTranscription()
+    interactionManager.clearCurrentInteraction()
+    itoStreamController.clearInteractionAudio()
+
+    await voiceInputService.stopAudioRecording()
+    recordingStateNotifier.notifyRecordingStopped()
+
+    if (responsePromise) {
+      try {
+        await responsePromise
+      } catch (error) {
+        console.log('[itoSessionManager] Stream cancelled as expected:', error)
+      }
+    }
+    allowAppNap()
+  }
+
+  public async completeSession() {
+    if (this.isSonioxMode) {
+      await this.completeSonioxSession()
+      return
+    }
+
+    const responsePromise = this.streamResponsePromise
+    this.streamResponsePromise = null
+
+    timingCollector.endTiming(TimingEventName.INTERACTION_ACTIVE)
+    await voiceInputService.stopAudioRecording()
+
+    const audioDurationMs = itoStreamController.getAudioDurationMs()
+
+    if (audioDurationMs < this.MINIMUM_AUDIO_DURATION_MS) {
+      console.log(
+        `[itoSessionManager] Audio too short (${audioDurationMs}ms < ${this.MINIMUM_AUDIO_DURATION_MS}ms), cancelling`,
+      )
+      itoStreamController.cancelTranscription()
+      itoStreamController.clearInteractionAudio()
+      recordingStateNotifier.notifyRecordingStopped()
+
+      if (responsePromise) {
+        try {
+          await responsePromise
+        } catch (error) {
+          console.log(
+            '[itoSessionManager] Stream cancelled as expected:',
+            error,
+          )
+        }
+      }
+      allowAppNap()
+      return
+    }
+
+    itoStreamController.endInteraction()
+    recordingStateNotifier.notifyProcessingStarted()
+    recordingStateNotifier.notifyRecordingStopped()
+
+    if (responsePromise) {
+      console.log(
+        '[itoSessionManager] Waiting for stream response from server...',
+      )
+      try {
+        const result = await responsePromise
+        console.log('[itoSessionManager] Received stream response:', {
+          hasTranscript: !!result.response?.transcript,
+          transcriptLength: result.response?.transcript?.length || 0,
+          hasError: !!result.response?.error,
+          audioBufferSize: result.audioBuffer.length,
+        })
+        await this.handleTranscriptionResponse(result)
+      } catch (error) {
+        console.error(
+          '[itoSessionManager] Error waiting for stream response:',
+          error,
+        )
+        await this.handleTranscriptionError(error)
+      } finally {
+        recordingStateNotifier.notifyProcessingStopped()
+      }
+    } else {
+      console.warn('[itoSessionManager] No stream response promise to wait for')
+      recordingStateNotifier.notifyProcessingStopped()
+    }
+  }
+
+  private async completeSonioxSession() {
+    if (!this.sonioxSessionActive) {
+      console.warn('[itoSessionManager] completeSonioxSession called but no active session, skipping')
+      return
+    }
+    this.sonioxSessionActive = false
+
+    timingCollector.endTiming(TimingEventName.INTERACTION_ACTIVE)
+
+    await voiceInputService.stopAudioRecording()
+
+    if (this.sonioxAudioHandler) {
+      audioRecorderService.off('audio-chunk', this.sonioxAudioHandler)
+      this.sonioxAudioHandler = null
+    }
+
+    recordingStateNotifier.notifyProcessingStarted()
+    recordingStateNotifier.notifyRecordingStopped()
+
+    const service = this.sonioxService
+    this.sonioxService = null
+
+    let rawTranscript = ''
+    if (service) {
+      try {
+        rawTranscript = await service.stop()
+      } catch (error) {
+        console.error('[itoSessionManager] Error stopping Soniox service:', error)
+        rawTranscript = service.getAccumulatedText() || ''
+      }
+    }
+
+    if (!rawTranscript || rawTranscript.trim().length === 0) {
+      console.warn('[itoSessionManager] No speech detected from Soniox')
+      recordingStateNotifier.notifyProcessingStopped()
+      allowAppNap()
+      this.cleanupSonioxState()
+      return
+    }
+
+    const mode = this.currentMode
+
+    try {
+      const { llm } = getAdvancedSettings()
+      const ctx = this.sonioxContext
+
+      const requestBody: Record<string, any> = {
+        transcript: rawTranscript,
+        mode: mode === ItoMode.EDIT ? 'edit' : 'transcribe',
+        llmSettings: {
+          llmProvider: llm?.llmProvider || undefined,
+          llmModel: llm?.llmModel || undefined,
+          llmTemperature: llm?.llmTemperature ?? undefined,
+          transcriptionPrompt: llm?.transcriptionPrompt || undefined,
+          editingPrompt: llm?.editingPrompt || undefined,
+        },
+      }
+
+      if (ctx) {
+        requestBody.context = {
+          windowTitle: ctx.windowTitle || '',
+          appName: ctx.appName || '',
+          contextText: ctx.contextText || '',
+          browserUrl: ctx.browserUrl || undefined,
+          browserDomain: ctx.browserDomain || undefined,
+          tonePrompt: ctx.tone?.promptTemplate || undefined,
+          userDetailsContext: ctx.userDetails
+            ? this.buildUserDetailsContextString(ctx.userDetails)
+            : undefined,
+        }
+        if (ctx.replacements && ctx.replacements.length > 0) {
+          requestBody.replacements = ctx.replacements.map(r => ({
+            fromText: r.from,
+            toText: r.to,
+          }))
+        }
+      }
+
+      const response = await itoHttpClient.post(
+        '/adjust-transcript',
+        requestBody,
+        { requireAuth: true },
+      )
+
+      if (response.success && response.transcript) {
+        let textToInsert = response.transcript
+
+        const { grammarServiceEnabled } = getAdvancedSettings()
+        if (grammarServiceEnabled) {
+          textToInsert = this.grammarRulesService.setCaseFirstWord(textToInsert)
+          textToInsert =
+            this.grammarRulesService.addLeadingSpaceIfNeeded(textToInsert)
+        }
+
+        this.textInserter.insertText(textToInsert)
+      } else {
+        console.error('[itoSessionManager] LLM adjustment failed:', response.error)
+        this.textInserter.insertText(rawTranscript)
+      }
+    } catch (error) {
+      console.error('[itoSessionManager] Error during LLM adjustment:', error)
+      this.textInserter.insertText(rawTranscript)
+    } finally {
+      recordingStateNotifier.notifyProcessingStopped()
+    }
+
+    try {
+      await interactionManager.createInteraction(
+        rawTranscript,
+        Buffer.alloc(0),
+        16000,
+        undefined,
+      )
+    } catch (error) {
+      console.error('[itoSessionManager] Failed to create interaction:', error)
+    }
+
+    allowAppNap()
+    this.cleanupSonioxState()
+  }
+
+  private buildUserDetailsContextString(
+    userDetails: NonNullable<ContextData['userDetails']>,
+  ): string {
+    const lines: string[] = []
+    if (userDetails.fullName) lines.push(`Name: ${userDetails.fullName}`)
+    if (userDetails.occupation)
+      lines.push(`Occupation: ${userDetails.occupation}`)
+    if (userDetails.companyName)
+      lines.push(`Company: ${userDetails.companyName}`)
+    if (userDetails.role) lines.push(`Role: ${userDetails.role}`)
+    if (userDetails.email) lines.push(`Email: ${userDetails.email}`)
+    if (userDetails.phoneNumber) lines.push(`Phone: ${userDetails.phoneNumber}`)
+    if (userDetails.businessAddress)
+      lines.push(`Address: ${userDetails.businessAddress}`)
+    if (userDetails.website) lines.push(`Website: ${userDetails.website}`)
+    if (userDetails.linkedin) lines.push(`LinkedIn: ${userDetails.linkedin}`)
+    if (userDetails.additionalInfo && userDetails.additionalInfo.length > 0) {
+      for (const info of userDetails.additionalInfo) {
+        if (info.key.trim() && info.value.trim())
+          lines.push(`${info.key}: ${info.value}`)
+      }
+    }
+    return lines.join('\n')
+  }
+
+  private cleanupSonioxState() {
+    timingCollector.finalizeInteraction()
+    interactionManager.clearCurrentInteraction()
+    this.isSonioxMode = false
+    this.sonioxContext = null
+  }
+
+  private async handleTranscriptionResponse(result: {
+    response: any
+    audioBuffer: Buffer
+    sampleRate: number
+  }) {
+    const { response, audioBuffer, sampleRate } = result
+
+    const errorMessage = response.error ? response.error.message : undefined
+
+    if (response.error) {
+      await interactionManager.createInteraction(
+        response.transcript || '',
+        audioBuffer,
+        sampleRate,
+        errorMessage,
+      )
+      timingCollector.clearInteraction()
+      interactionManager.clearCurrentInteraction()
+      itoStreamController.clearInteractionAudio()
+    } else {
+      if (response.transcript && !response.error) {
+        let textToInsert = response.transcript
+
+        const { grammarServiceEnabled } = getAdvancedSettings()
+        if (grammarServiceEnabled) {
+          textToInsert = this.grammarRulesService.setCaseFirstWord(textToInsert)
+          textToInsert =
+            this.grammarRulesService.addLeadingSpaceIfNeeded(textToInsert)
+        }
+
+        this.textInserter.insertText(textToInsert)
+
+        await interactionManager.createInteraction(
+          response.transcript,
+          audioBuffer,
+          sampleRate,
+          errorMessage,
+        )
+      } else {
+        log.warn('[itoSessionManager] Skipping text insertion:', {
+          hasTranscript: !!response.transcript,
+          transcriptLength: response.transcript?.length || 0,
+          hasError: !!response.error,
+        })
+      }
+      timingCollector.finalizeInteraction()
+      interactionManager.clearCurrentInteraction()
+      itoStreamController.clearInteractionAudio()
+    }
+    allowAppNap()
+  }
+
+  private async handleTranscriptionError(error: any) {
+    log.error(
+      '[itoSessionManager] An unexpected error occurred during transcription:',
+      error,
+    )
+    timingCollector.clearInteraction()
+    interactionManager.clearCurrentInteraction()
+    itoStreamController.clearInteractionAudio()
+    allowAppNap()
+  }
+
+  private handleSonioxStreamError(error: Error) {
+    if (!this.sonioxSessionActive) {
+      console.warn(
+        '[itoSessionManager] Soniox stream error after session ended, ignoring:',
+        error.message,
+      )
+      return
+    }
+
+    console.error(
+      '[itoSessionManager] Soniox stream error, cleaning up session:',
+      error.message,
+    )
+
+    this.sonioxSessionActive = false
+    this.sonioxSessionGeneration++
+
+    if (this.sonioxAudioHandler) {
+      audioRecorderService.off('audio-chunk', this.sonioxAudioHandler)
+      this.sonioxAudioHandler = null
+    }
+
+    this.sonioxService?.cancel()
+    this.sonioxService = null
+
+    voiceInputService.stopAudioRecording().catch(e => {
+      console.error('[itoSessionManager] Error stopping audio after Soniox error:', e)
+    })
+
+    recordingStateNotifier.notifyRecordingStopped()
+    timingCollector.clearInteraction()
+    interactionManager.clearCurrentInteraction()
+    allowAppNap()
+    this.cleanupSonioxState()
+  }
+}
+
+export const itoSessionManager = new ItoSessionManager()

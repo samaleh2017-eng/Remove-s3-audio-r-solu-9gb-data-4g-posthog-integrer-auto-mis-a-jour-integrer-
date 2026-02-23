@@ -1,0 +1,200 @@
+name: Build and Release App
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v0.2.4)'
+        required: true
+        default: 'v0.2.5'
+
+permissions:
+  contents: write
+
+env:
+  ITO_ENV: dev
+  VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'disabled' }}
+  VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || '' }}
+  VITE_GRPC_BASE_URL: ${{ vars.VITE_GRPC_BASE_URL }}
+  VITE_POSTHOG_API_KEY: ${{ vars.VITE_POSTHOG_API_KEY || '' }}
+  VITE_POSTHOG_HOST: ${{ vars.VITE_POSTHOG_HOST || '' }}
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME}"
+          fi
+          VERSION_NO_V="${VERSION#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_no_v=$VERSION_NO_V" >> $GITHUB_OUTPUT
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: 'x86_64-apple-darwin,aarch64-apple-darwin'
+
+      - name: Build native modules (ARM64)
+        run: ./build-binaries.sh --mac
+
+      - name: Build native modules (x64)
+        run: ./build-binaries.sh --mac --x64
+
+      - name: Build Electron app
+        env:
+          VITE_ITO_VERSION: ${{ steps.version.outputs.version_no_v }}
+          VITE_ITO_ENV: dev
+          ITO_ENV: dev
+        run: bun run electron-vite build
+
+      - name: Package macOS app (unsigned)
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          VITE_ITO_ENV: dev
+        run: bunx electron-builder --config electron-builder.config.js --mac dmg zip --universal --publish=never
+
+      - name: List output files
+        run: ls -la dist/
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.blockmap
+            dist/*.yml
+          retention-days: 5
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME}"
+          fi
+          VERSION_NO_V="${VERSION#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_no_v=$VERSION_NO_V" >> $GITHUB_OUTPUT
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: 'x86_64-pc-windows-msvc'
+
+      - name: Build native modules for Windows
+        shell: bash
+        run: |
+          cd native
+          cargo build --release --workspace --target x86_64-pc-windows-msvc
+          cd ..
+
+      - name: Build Electron app
+        env:
+          VITE_ITO_VERSION: ${{ steps.version.outputs.version_no_v }}
+          VITE_ITO_ENV: dev
+          ITO_ENV: dev
+        run: bun run electron-vite build
+
+      - name: Package Windows app
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          VITE_ITO_ENV: dev
+        run: bunx electron-builder --config electron-builder.config.js --win --x64 --publish=never
+
+      - name: List output files
+        shell: bash
+        run: ls -la dist/
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: |
+            dist/*.exe
+            dist/*.blockmap
+            dist/*.yml
+          retention-days: 5
+
+  release:
+    needs: [build-mac, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display downloaded files
+        run: find artifacts -type f -ls
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "tag=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/macos-build/*.dmg
+            artifacts/macos-build/*.zip
+            artifacts/macos-build/*.blockmap
+            artifacts/macos-build/*.yml
+            artifacts/windows-build/*.exe
+            artifacts/windows-build/*.blockmap
+            artifacts/windows-build/*.yml
+          body: |
+            ## Ito ${{ steps.version.outputs.tag }}
+            
+            ### Downloads
+            - **macOS (Universal)**: Download the DMG file
+            - **Windows (x64)**: Download the EXE installer
+            
+            ### Installation
+            - **macOS**: Download the DMG, open it, and drag Ito to Applications
+            - **Windows**: Download and run the EXE installer
+            
+            > ⚠️ These builds are unsigned. You may need to allow the app in your security settings.
