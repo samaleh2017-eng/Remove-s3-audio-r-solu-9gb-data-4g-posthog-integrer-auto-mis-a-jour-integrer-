@@ -223,7 +223,9 @@ export default function KeyboardShortcutEditor({
   }
 
   return (
-    <div className={`bg-white rounded-lg ${className}`}>
+    <div
+      className={`bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] p-4 ${className}`}
+    >
       {isEditing ? (
         <>
           {!hideTitle && (
@@ -232,14 +234,14 @@ export default function KeyboardShortcutEditor({
             </div>
           )}
           <div
-            className="flex justify-center items-center mb-4 w-full bg-neutral-100 py-3 rounded-lg gap-2"
+            className="flex justify-center items-center mb-4 w-full bg-[var(--muted)] py-3 rounded-xl gap-2"
             style={{ minHeight }}
           >
             {newShortcut.map((keyboardKey, index) => (
               <KeyboardKey
                 key={index}
                 keyboardKey={keyboardKey}
-                className="bg-white border-2 border-neutral-300"
+                className="bg-[var(--card)] border border-[var(--border)]"
                 style={{
                   width: `${keySize}px`,
                   height: `${keySize}px`,
@@ -247,7 +249,7 @@ export default function KeyboardShortcutEditor({
               />
             ))}
             {newShortcut.length === 0 && (
-              <div className="text-gray-400 text-sm">
+              <div className="text-[var(--muted-foreground)] text-sm">
                 Press keys to add them (max {MAX_KEYS_PER_SHORTCUT} keys)
               </div>
             )}
@@ -284,14 +286,14 @@ export default function KeyboardShortcutEditor({
             </div>
           )}
           <div
-            className="flex justify-center items-center mb-4 w-full bg-neutral-100 py-3 rounded-lg gap-2"
+            className="flex justify-center items-center mb-4 w-full bg-[var(--muted)] py-3 rounded-xl gap-2"
             style={{ minHeight }}
           >
             {shortcutKeys.map((keyboardKey, index) => (
               <KeyboardKey
                 key={index}
                 keyboardKey={keyboardKey}
-                className={`${isDisplayKeyPressed(String(keyboardKey), pressedKeys) ? 'bg-purple-50 border-2 border-purple-200' : 'bg-white border-2 border-neutral-300'}`}
+                className={`${isDisplayKeyPressed(String(keyboardKey), pressedKeys) ? 'bg-[var(--ring-soft)] border border-[var(--ring)]' : 'bg-[var(--card)] border border-[var(--border)]'}`}
                 style={{
                   width: `${keySize}px`,
                   height: `${keySize}px`,

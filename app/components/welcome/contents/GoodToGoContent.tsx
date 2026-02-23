@@ -29,8 +29,10 @@ export default function GoodToGoContent() {
           </div>
         </div>
       </div>
-      <div className="flex w-[55%] items-center justify-center bg-gradient-to-b from-purple-50/10 to-purple-100 border-l-2 border-purple-100">
-        <CheckCircle style={{ width: 220, height: 220, color: '#a78bfa' }} />
+      <div className="flex w-[55%] items-center justify-center bg-gradient-to-b from-indigo-50/20 to-indigo-100/60 border-l border-[var(--border)]">
+        <CheckCircle
+          style={{ width: 220, height: 220, color: 'var(--ring)' }}
+        />
       </div>
     </div>
   )

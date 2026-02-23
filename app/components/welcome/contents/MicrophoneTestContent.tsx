@@ -16,13 +16,13 @@ function MicrophoneBars({ volume }: { volume: number }) {
 
   return (
     <div
-      className="flex gap-1 py-4 px-4 items-end bg-neutral-100 rounded-md"
+      className="flex gap-1 py-4 px-4 items-end bg-[var(--muted)] border border-[var(--border)] rounded-xl"
       style={{ height: 120 }}
     >
       {levels.map((level, i) => (
         <div
           key={i}
-          className={`mx-2 h-full ${level > minHeight ? 'bg-purple-300' : 'bg-neutral-300'}`}
+          className={`mx-2 h-full ${level > minHeight ? 'bg-indigo-300' : 'bg-[rgba(15,23,42,0.18)]'}`}
           style={{
             width: 18,
             borderRadius: 6,
@@ -104,9 +104,9 @@ export default function MicrophoneTestContent() {
           </div>
         </div>
       </div>
-      <div className="flex w-[55%] items-center justify-center bg-gradient-to-b from-purple-50/10 to-purple-100 border-l-2 border-purple-100">
+      <div className="flex w-[55%] items-center justify-center bg-gradient-to-b from-indigo-50/20 to-indigo-100/60 border-l border-[var(--border)]">
         <div
-          className="bg-white rounded-xl shadow-lg p-6 flex flex-col items-center"
+          className="bg-[var(--card)] rounded-2xl border border-[var(--border)] shadow-[var(--shadow-soft)] p-6 flex flex-col items-center"
           style={{ minWidth: 500, maxHeight: 280 }}
         >
           <div className="text-lg font-medium mb-6 text-center">

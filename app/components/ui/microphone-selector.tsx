@@ -108,7 +108,7 @@ export function MicrophoneSelector({
         </Button>
       </DialogTrigger>
       <DialogContent
-        className="!border-0 shadow-lg p-0"
+        className="!border-0 shadow-[var(--shadow-soft)] p-0 bg-[var(--card)]"
         showCloseButton={false}
       >
         <DialogTitle className="sr-only">Select Microphone</DialogTitle>
@@ -121,10 +121,10 @@ export function MicrophoneSelector({
             return (
               <div
                 key={mic.deviceId}
-                className={`p-6 rounded-md cursor-pointer transition-colors max-w-full overflow-hidden ${
+                className={`p-6 rounded-xl cursor-pointer transition-colors max-w-full overflow-hidden border ${
                   tempSelectedMicrophone === mic.deviceId
-                    ? 'bg-purple-50 border-2 border-purple-100'
-                    : 'bg-neutral-100 border-2 border-neutral-100 hover:bg-neutral-200'
+                    ? 'bg-[var(--ring-soft)] border-[var(--ring)]'
+                    : 'bg-[var(--muted)] border-[var(--border)] hover:bg-[var(--color-muted-bg)]'
                 }`}
                 onClick={() => handleMicrophoneSelect(mic.deviceId)}
                 style={{ minWidth: 0 }}
@@ -137,7 +137,7 @@ export function MicrophoneSelector({
                 </div>
                 {description && (
                   <div
-                    className="text-sm text-muted-foreground text-wrap mt-2"
+                    className="text-sm text-[var(--muted-foreground)] text-wrap mt-2"
                     style={{ maxWidth: '100%' }}
                   >
                     {description}

@@ -266,10 +266,10 @@ export default function PermissionsContent() {
           </div>
         </div>
       </div>
-      <div className="flex w-[55%] items-center justify-center bg-gradient-to-b from-purple-50/10 to-purple-100 border-l-2 border-purple-100">
+      <div className="flex w-[55%] items-center justify-center bg-gradient-to-b from-indigo-50/20 to-indigo-100/60 border-l border-[var(--border)]">
         <div className="w-[600px] h-[500px] rounded-lg flex items-center justify-center">
           {isAccessibilityEnabled && isMicrophoneEnabled ? (
-            <Lock style={{ width: 220, height: 220, color: '#c4b5fd' }} />
+            <Lock style={{ width: 220, height: 220, color: 'var(--ring)' }} />
           ) : !isAccessibilityEnabled ? (
             <video
               src={accessibilityVideo}

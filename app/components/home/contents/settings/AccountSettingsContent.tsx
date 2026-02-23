@@ -66,29 +66,32 @@ export default function AccountSettingsContent() {
 
   return (
     <div className="h-full justify-between">
-      <div className="rounded-xl bg-[#F2F2F2]">
-        <div className="flex items-center justify-between py-4 px-5 border-b border-[#EBEBEB]">
-          <label className="text-sm font-medium text-[#1f1f1f]">Name</label>
+      <div className="rounded-[var(--radius-lg)] bg-[var(--color-muted-bg)] border border-[var(--border)]">
+        <div className="flex items-center justify-between py-4 px-5 border-b border-[var(--border)]">
+          <label className="text-sm font-medium text-foreground">Name</label>
           <input
             type="text"
             value={user?.name}
             onChange={e => setName(e.target.value)}
-            className="w-80 bg-white border border-[var(--border)] rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:border-transparent"
+            className="w-80 bg-[var(--card)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:border-transparent"
           />
         </div>
         <div className="flex items-center justify-between py-4 px-5">
-          <label className="text-sm font-medium text-[#1f1f1f]">Email</label>
-          <div className="w-80 text-sm text-[#888] px-4">{user?.email}</div>
+          <label className="text-sm font-medium text-foreground">Email</label>
+          <div className="w-80 text-sm text-[var(--color-subtext)] px-4">
+            {user?.email}
+          </div>
         </div>
       </div>
 
       <div className="flex pt-8 w-full justify-center">
-        <button
+        <Button
+          variant="outline"
+          className="h-11 px-8 rounded-xl"
           onClick={handleSignOut}
-          className="bg-[#D9D9DE] border-0 text-[#1f1f1f] hover:bg-[#CDCDD2] rounded-lg text-sm px-8 py-2.5 cursor-pointer"
         >
           Sign out
-        </button>
+        </Button>
       </div>
       <div className="flex pt-12 w-full justify-center">
         <button

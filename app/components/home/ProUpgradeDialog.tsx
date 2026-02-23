@@ -57,7 +57,7 @@ export function ProUpgradeDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md p-0 overflow-hidden border-none">
+      <DialogContent className="max-w-md p-0 overflow-hidden border-none bg-[var(--card)]">
         {/* Banner Header with Image */}
         <div
           className="relative px-8 py-12 text-center bg-cover bg-center"
@@ -65,7 +65,7 @@ export function ProUpgradeDialog({
         >
           {/* PRO Badge */}
           <div className="relative inline-block mb-6">
-            <div className="bg-white rounded-full px-12 py-4 shadow-lg">
+            <div className="bg-[rgba(255,255,255,0.92)] dark:bg-[rgba(11,16,32,0.85)] backdrop-blur rounded-full px-12 py-4 shadow-[var(--shadow-soft)] border border-white/40">
               <span className="text-5xl font-black bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">
                 PRO
               </span>
@@ -74,7 +74,7 @@ export function ProUpgradeDialog({
         </div>
 
         {/* Content */}
-        <div className="px-8 py-6 bg-white">
+        <div className="px-8 py-6 bg-[var(--card)]">
           <h2 className="text-3xl font mb-2 ">
             Congrats! You have been{' '}
             <span className="bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">
@@ -82,14 +82,14 @@ export function ProUpgradeDialog({
             </span>
           </h2>
 
-          <p className="text-l text-gray-600  mb-6">
+          <p className="text-base text-[var(--color-subtext)] mb-6">
             Enjoy all Pro features for{' '}
             <span className="font-semibold">14 days</span>.
           </p>
 
           {/* Error Message */}
           {checkoutError && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-800 mb-6">
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-800 mb-6">
               {checkoutError}
             </div>
           )}
@@ -108,7 +108,7 @@ export function ProUpgradeDialog({
               onClick={() => onOpenChange(false)}
               variant="default"
               size="lg"
-              className="bg-gray-900 hover:bg-gray-800 text-white rounded-xl"
+              className="rounded-xl"
             >
               Try for free
             </Button>
@@ -120,7 +120,7 @@ export function ProUpgradeDialog({
               disabled={checkoutLoading || billingState.isLoading}
             >
               {checkoutLoading ? 'Loading...' : 'Upgrade Now'}{' '}
-              <span className="text-gray-500">(20% off)</span>
+              <span className="text-[var(--muted-foreground)]">(20% off)</span>
             </Button>
           </DialogFooter>
         </div>
@@ -135,7 +135,7 @@ function FeatureItem({ text }: { text: string }) {
       <div className="flex-shrink-0">
         <Check className="w-5 h-5" strokeWidth={3} />
       </div>
-      <span className="text-gray-900">{text}</span>
+      <span className="text-[var(--color-text)]">{text}</span>
     </div>
   )
 }

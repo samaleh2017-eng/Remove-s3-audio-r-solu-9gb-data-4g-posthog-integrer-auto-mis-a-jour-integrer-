@@ -322,7 +322,9 @@ if (typeof window !== 'undefined' && window.api?.dock?.getVisibility) {
       window.api?.dock
         ?.getVisibility()
         .then(dockSettings => {
-          const storedSettings = window.electron?.store?.get(STORE_KEYS.SETTINGS)
+          const storedSettings = window.electron?.store?.get(
+            STORE_KEYS.SETTINGS,
+          )
           if (dockSettings.isVisible !== storedSettings?.showAppInDock) {
             useSettingsStore.getState().setShowAppInDock(dockSettings.isVisible)
           }

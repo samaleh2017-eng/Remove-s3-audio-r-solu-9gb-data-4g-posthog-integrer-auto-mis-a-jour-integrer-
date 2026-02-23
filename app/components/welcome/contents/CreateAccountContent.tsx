@@ -34,8 +34,7 @@ export default function CreateAccountContent() {
 
   const {
     user,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    isAuthenticated,
+    isAuthenticated: _isAuthenticated,
     loginWithGoogle,
     loginWithMicrosoft,
     loginWithApple,
@@ -151,7 +150,7 @@ export default function CreateAccountContent() {
       <div className="relative flex flex-col items-center w-full h-full max-h-full px-8 py-16 mt-12 mb-12">
         {/* Logo */}
         <div className="mb-4 bg-black rounded-md p-2 w-10 h-10">
-          <ItoIcon height={24} width={24} style={{ color: '#FFFFFF' }} />
+          <ItoIcon height={24} width={24} className="text-white" />
         </div>
 
         {/* Title and subtitle */}
@@ -288,19 +287,19 @@ export default function CreateAccountContent() {
         >
           <DialogContent
             showCloseButton={false}
-            className="w-[90vw] max-w-[600px] rounded-md border-0 bg-white p-6"
+            className="w-[92vw] max-w-[640px] rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow-soft)]"
           >
             <DialogHeader className="mb-2 text-left">
-              <DialogTitle className="text-[18px] leading-6 font-semibold text-black">
+              <DialogTitle className="text-[18px] leading-6 font-semibold text-foreground">
                 Self-Hosted
               </DialogTitle>
-              <DialogDescription className="text-sm leading-5 text-black">
+              <DialogDescription className="text-sm leading-5 text-[var(--color-subtext)]">
                 Local server must be running to use self-hosted option
               </DialogDescription>
             </DialogHeader>
 
-            <div className="rounded-md bg-[#F5F5F5] p-4">
-              <p className="text-sm font-medium leading-5 text-black">
+            <div className="rounded-xl bg-[var(--muted)] border border-[var(--border)] p-4">
+              <p className="text-sm font-medium leading-5 text-foreground">
                 Running Ito locally requires additional setup. Please refer to
                 our Github and Documentation
               </p>
@@ -308,7 +307,7 @@ export default function CreateAccountContent() {
                 <Button
                   variant="outline"
                   asChild
-                  className="h-10 flex-1 basis-1/2 justify-center rounded border border-black text-sm font-medium text-black"
+                  className="h-10 flex-1 basis-1/2 justify-center rounded-xl border border-[var(--border)] text-sm font-medium text-foreground"
                 >
                   <a
                     href={EXTERNAL_LINKS.GITHUB}
@@ -321,7 +320,7 @@ export default function CreateAccountContent() {
                 <Button
                   variant="outline"
                   asChild
-                  className="h-10 flex-1 basis-1/2 justify-center rounded border border-black text-base font-medium text-black"
+                  className="h-10 flex-1 basis-1/2 justify-center rounded-xl border border-[var(--border)] text-base font-medium text-foreground"
                 >
                   <a
                     href={EXTERNAL_LINKS.WEBSITE}

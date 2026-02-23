@@ -280,7 +280,7 @@ export function validateShortcutForDuplicate(
  */
 export class KeyState {
   private pressedKeys: Set<KeyName> = new Set()
-  private shortcut: KeyName[] = []
+  private _shortcut: KeyName[] = []
 
   constructor(shortcut: KeyName[] = []) {
     this.updateShortcut(shortcut)
@@ -292,7 +292,7 @@ export class KeyState {
    */
   updateShortcut(shortcut: KeyName[]) {
     // Normalize legacy keys to new format
-    this.shortcut = shortcut.map(normalizeLegacyKey)
+    this._shortcut = shortcut.map(normalizeLegacyKey)
   }
 
   /**

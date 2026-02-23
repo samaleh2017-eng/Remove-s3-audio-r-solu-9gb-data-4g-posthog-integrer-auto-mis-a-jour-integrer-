@@ -53,7 +53,7 @@ export default function MyDetailsSettingsContent() {
   }
 
   const inputClass =
-    'w-80 bg-white border border-[var(--border)] rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:border-transparent'
+    'w-80 bg-[var(--card)] border border-[var(--border)] rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:border-transparent'
 
   if (isLoading) {
     return (
@@ -131,7 +131,9 @@ export default function MyDetailsSettingsContent() {
               />
             </div>
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-foreground">Role</label>
+              <label className="text-sm font-medium text-foreground">
+                Role
+              </label>
               <input
                 type="text"
                 className={inputClass}
@@ -141,7 +143,9 @@ export default function MyDetailsSettingsContent() {
               />
             </div>
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-foreground">Email</label>
+              <label className="text-sm font-medium text-foreground">
+                Email
+              </label>
               <input
                 type="email"
                 className={inputClass}
@@ -151,7 +155,9 @@ export default function MyDetailsSettingsContent() {
               />
             </div>
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-foreground">Phone</label>
+              <label className="text-sm font-medium text-foreground">
+                Phone
+              </label>
               <input
                 type="tel"
                 className={inputClass}
@@ -227,7 +233,7 @@ export default function MyDetailsSettingsContent() {
                 <div key={index} className="flex items-center gap-2">
                   <input
                     type="text"
-                    className="flex-1 bg-white border border-[var(--border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:border-transparent"
+                    className="flex-1 bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:border-transparent"
                     value={row.key}
                     onChange={e =>
                       updateAdditionalInfoRow(index, 'key', e.target.value)
@@ -236,7 +242,7 @@ export default function MyDetailsSettingsContent() {
                   />
                   <input
                     type="text"
-                    className="flex-1 bg-white border border-[var(--border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:border-transparent"
+                    className="flex-1 bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:border-transparent"
                     value={row.value}
                     onChange={e =>
                       updateAdditionalInfoRow(index, 'value', e.target.value)
@@ -255,7 +261,7 @@ export default function MyDetailsSettingsContent() {
           )}
           <button
             onClick={addAdditionalInfoRow}
-            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            className="text-sm text-[var(--ring)] hover:opacity-90 font-medium"
           >
             ＋ Add
           </button>

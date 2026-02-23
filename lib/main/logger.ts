@@ -58,7 +58,9 @@ export function initializeLogging() {
     try {
       const settings = store.get(STORE_KEYS.SETTINGS)
       _shareAnalyticsCached = settings?.shareAnalytics ?? false
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
   refreshAnalyticsFlag()
   const analyticsRefreshTimer = setInterval(refreshAnalyticsFlag, 60_000)
@@ -225,7 +227,8 @@ export function initializeLogging() {
         const isError = method === 'error'
         if (isError || _shareAnalyticsCached) {
           queue.push(toEvent(mapped as any, String(args[0] ?? ''), { args }))
-          if (queue.length > MAX_QUEUE) queue.splice(0, queue.length - MAX_QUEUE)
+          if (queue.length > MAX_QUEUE)
+            queue.splice(0, queue.length - MAX_QUEUE)
           scheduleFlush()
         }
       } catch (err) {

@@ -73,13 +73,15 @@ export function RegisterAppDialog({ open, onOpenChange, context }: Props) {
             onClick={() => setSelectedType('app')}
             className={`w-full flex items-start gap-3 p-4 rounded-lg border-2 transition-all text-left ${
               selectedType === 'app'
-                ? 'border-blue-500 bg-blue-50'
-                : 'border-[var(--border)] hover:border-warm-200'
+                ? 'border-[var(--ring)] bg-[var(--ring-soft)]'
+                : 'border-[var(--border)] hover:border-[var(--ring)]'
             }`}
           >
             <div
               className={`mt-0.5 p-2 rounded-lg ${
-                selectedType === 'app' ? 'bg-blue-500 text-white' : 'bg-[var(--color-muted-bg)]'
+                selectedType === 'app'
+                  ? 'bg-[var(--ring)] text-white'
+                  : 'bg-[var(--color-muted-bg)]'
               }`}
             >
               <AppWindowIcon className="h-5 w-5" />
@@ -88,7 +90,7 @@ export function RegisterAppDialog({ open, onOpenChange, context }: Props) {
               <div className="flex items-center gap-2">
                 <span className="font-medium">Application</span>
                 {selectedType === 'app' && (
-                  <Check className="h-4 w-4 text-blue-500" />
+                  <Check className="h-4 w-4 text-[var(--ring)]" />
                 )}
               </div>
               <p className="text-sm text-[var(--color-subtext)] mt-1">
@@ -108,14 +110,14 @@ export function RegisterAppDialog({ open, onOpenChange, context }: Props) {
               !hasDomain
                 ? 'border-[var(--border)] bg-[var(--color-surface)] opacity-50 cursor-not-allowed'
                 : selectedType === 'domain'
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-[var(--border)] hover:border-warm-200'
+                  ? 'border-[var(--ring)] bg-[var(--ring-soft)]'
+                  : 'border-[var(--border)] hover:border-[var(--ring)]'
             }`}
           >
             <div
               className={`mt-0.5 p-2 rounded-lg ${
                 selectedType === 'domain' && hasDomain
-                  ? 'bg-blue-500 text-white'
+                  ? 'bg-[var(--ring)] text-white'
                   : 'bg-[var(--color-muted-bg)]'
               }`}
             >
@@ -125,7 +127,7 @@ export function RegisterAppDialog({ open, onOpenChange, context }: Props) {
               <div className="flex items-center gap-2">
                 <span className="font-medium">Domain</span>
                 {selectedType === 'domain' && hasDomain && (
-                  <Check className="h-4 w-4 text-blue-500" />
+                  <Check className="h-4 w-4 text-[var(--ring)]" />
                 )}
               </div>
               <p className="text-sm text-[var(--color-subtext)] mt-1">

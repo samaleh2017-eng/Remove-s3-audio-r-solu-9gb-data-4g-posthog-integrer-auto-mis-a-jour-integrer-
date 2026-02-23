@@ -7,7 +7,6 @@ import {
   DictionaryItem as DictionaryItemPb,
   AdvancedSettings as AdvancedSettingsPb,
   TimingReport,
-  TimingEvent,
   CreateNoteRequestSchema,
   UpdateNoteRequestSchema,
   DeleteNoteRequestSchema,
@@ -24,8 +23,6 @@ import {
   GetAdvancedSettingsRequestSchema,
   UpdateAdvancedSettingsRequestSchema,
   SubmitTimingReportsRequestSchema,
-  TimingReportSchema,
-  TimingEventSchema,
   ItoMode,
   TranscribeStreamRequest,
 } from '@/app/generated/ito_pb'
@@ -97,13 +94,17 @@ class GrpcClient {
 
   private getHeaders() {
     if (!this.authToken) {
-      const storedToken = store.get(STORE_KEYS.ACCESS_TOKEN) as string | undefined
+      const storedToken = store.get(STORE_KEYS.ACCESS_TOKEN) as
+        | string
+        | undefined
       if (storedToken) {
         this.authToken = storedToken
       }
     }
     if (!this.authToken) {
-      console.warn('[GrpcClient] No auth token available, sending request without Authorization header')
+      console.warn(
+        '[GrpcClient] No auth token available, sending request without Authorization header',
+      )
       return new Headers()
     }
     return new Headers({ Authorization: `Bearer ${this.authToken}` })
@@ -212,7 +213,9 @@ class GrpcClient {
 
   private async ensureTokenFresh() {
     if (!this.authToken) {
-      const storedToken = store.get(STORE_KEYS.ACCESS_TOKEN) as string | undefined
+      const storedToken = store.get(STORE_KEYS.ACCESS_TOKEN) as
+        | string
+        | undefined
       if (storedToken) {
         this.authToken = storedToken
       } else {
@@ -391,9 +394,17 @@ class GrpcClient {
         durationMs: interaction.duration_ms ?? 0,
       })
 
-      console.log('[gRPC Client] Creating interaction:', interaction.id, 'duration:', request.durationMs, 'ms')
+      console.log(
+        '[gRPC Client] Creating interaction:',
+        interaction.id,
+        'duration:',
+        request.durationMs,
+        'ms',
+      )
 
-      return await this.client.createInteraction(request, { headers: this.getHeaders() })
+      return await this.client.createInteraction(request, {
+        headers: this.getHeaders(),
+      })
     })
   }
 

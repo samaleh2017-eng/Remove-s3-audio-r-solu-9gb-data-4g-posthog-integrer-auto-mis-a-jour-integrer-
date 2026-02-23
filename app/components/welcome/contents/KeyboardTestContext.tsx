@@ -35,7 +35,7 @@ export default function KeyboardTestContent() {
               <span key="we-recommend">We recommend the </span>
               {defaultKeys.map((key, index) => (
                 <React.Fragment key={index}>
-                  <span className="inline-flex items-center px-2 py-0.5 bg-neutral-100 border rounded text-xs font-mono ml-1">
+                  <span className="inline-flex items-center px-2 py-0.5 bg-[var(--muted)] border border-[var(--border)] rounded text-xs font-mono ml-1">
                     {getKeyDisplay(key as KeyName, platform, {
                       showDirectionalText: false,
                       format: 'label',
@@ -52,7 +52,7 @@ export default function KeyboardTestContent() {
           </div>
         </div>
       </div>
-      <div className="flex w-[55%] items-center justify-center bg-gradient-to-b from-purple-50/10 to-purple-100 border-l-2 border-purple-100">
+      <div className="flex w-[55%] items-center justify-center bg-gradient-to-b from-indigo-50/20 to-indigo-100/60 border-l border-[var(--border)]">
         <KeyboardShortcutEditor
           shortcut={keyboardShortcut}
           onShortcutChange={updateKeyboardShortcut}
@@ -66,7 +66,7 @@ export default function KeyboardTestContent() {
           minHeight={112}
           editButtonClassName="w-44"
           confirmButtonClassName="w-16"
-          className="rounded-xl shadow-lg p-6 flex flex-col items-center min-w-[500px] max-h-[280px]"
+          className="rounded-2xl border border-[var(--border)] shadow-[var(--shadow-soft)] p-6 flex flex-col items-center min-w-[500px] max-h-[280px] bg-[var(--card)]"
         />
       </div>
     </div>

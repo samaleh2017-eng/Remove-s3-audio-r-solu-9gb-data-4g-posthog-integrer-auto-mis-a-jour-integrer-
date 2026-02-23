@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeEach, mock } from 'bun:test'
 import { KeyState } from './keyboard'
 import type { KeyEvent } from '@/lib/preload'
+import type { KeyName } from '@/lib/types/keyboard'
 
 // Mock the window.api for KeyState tests
 const mockApi = {
@@ -29,7 +30,7 @@ describe('KeyState', () => {
     })
 
     test('should initialize with provided shortcut', () => {
-      const keyState = new KeyState(['command', 'space'])
+      const keyState = new KeyState(['command', 'space'] as KeyName[])
 
       expect(keyState).toBeDefined()
     })
@@ -37,13 +38,13 @@ describe('KeyState', () => {
 
   describe('updateShortcut', () => {
     test('should update the shortcut', () => {
-      keyState.updateShortcut(['command', 'z'])
+      keyState.updateShortcut(['command', 'z'] as KeyName[])
 
       expect(keyState).toBeDefined()
     })
 
     test('should handle empty shortcut', () => {
-      keyState.updateShortcut([])
+      keyState.updateShortcut([] as KeyName[])
 
       expect(keyState).toBeDefined()
     })
@@ -122,14 +123,14 @@ describe('KeyState', () => {
 
   describe('key blocking behavior', () => {
     test('should track non-shortcut keys correctly', () => {
-      keyState.updateShortcut(['command', 'z'])
+      keyState.updateShortcut(['command', 'z'] as KeyName[])
 
       keyState.update({ key: 'KeyA', type: 'keydown' } as KeyEvent)
       expect(keyState.getPressedKeys()).toContain('a')
     })
 
     test('should track keys when part of shortcut is pressed', () => {
-      keyState.updateShortcut(['command', 'z'])
+      keyState.updateShortcut(['command', 'z'] as KeyName[])
 
       keyState.update({ key: 'MetaLeft', type: 'keydown' } as KeyEvent)
       expect(keyState.isKeyPressed('command-left')).toBe(true)
@@ -137,7 +138,7 @@ describe('KeyState', () => {
     })
 
     test('should track keys when complete shortcut is pressed', () => {
-      keyState.updateShortcut(['command', 'z'])
+      keyState.updateShortcut(['command', 'z'] as KeyName[])
 
       keyState.update({ key: 'MetaLeft', type: 'keydown' } as KeyEvent)
       keyState.update({ key: 'KeyZ', type: 'keydown' } as KeyEvent)
@@ -146,7 +147,7 @@ describe('KeyState', () => {
     })
 
     test('should track key releases correctly', () => {
-      keyState.updateShortcut(['command', 'z'])
+      keyState.updateShortcut(['command', 'z'] as KeyName[])
       keyState.update({ key: 'MetaLeft', type: 'keydown' } as KeyEvent)
 
       keyState.update({ key: 'MetaLeft', type: 'keyup' } as KeyEvent)
@@ -154,7 +155,7 @@ describe('KeyState', () => {
     })
 
     test('should handle complex shortcuts with multiple modifier keys', () => {
-      keyState.updateShortcut(['command', 'shift', 'z'])
+      keyState.updateShortcut(['command', 'shift', 'z'] as KeyName[])
 
       keyState.update({ key: 'MetaLeft', type: 'keydown' } as KeyEvent)
       keyState.update({ key: 'ShiftLeft', type: 'keydown' } as KeyEvent)
@@ -164,7 +165,7 @@ describe('KeyState', () => {
     })
 
     test('should handle fn key in shortcuts', () => {
-      keyState.updateShortcut(['fn', 'f1'])
+      keyState.updateShortcut(['fn', 'f1'] as KeyName[])
 
       keyState.update({ key: 'Function', type: 'keydown' } as KeyEvent)
 
@@ -173,7 +174,7 @@ describe('KeyState', () => {
     })
 
     test('should track command keys correctly', () => {
-      keyState.updateShortcut(['command'])
+      keyState.updateShortcut(['command'] as KeyName[])
 
       keyState.update({ key: 'MetaLeft', type: 'keydown' } as KeyEvent)
 
@@ -196,11 +197,11 @@ describe('KeyState', () => {
     })
 
     test('should handle shortcut change while keys are pressed', () => {
-      keyState.updateShortcut(['command', 'z'])
+      keyState.updateShortcut(['command', 'z'] as KeyName[])
       keyState.update({ key: 'MetaLeft', type: 'keydown' } as KeyEvent)
 
       // Change shortcut while command is still pressed
-      keyState.updateShortcut(['command', 'x'])
+      keyState.updateShortcut(['command', 'x'] as KeyName[])
 
       // KeyState should still track the pressed key correctly
       expect(keyState.isKeyPressed('command-left')).toBe(true)
