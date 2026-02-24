@@ -112,7 +112,7 @@ export function registerIPC() {
 
   ipcMain.handle('check-for-updates', async () => {
     try {
-      checkForUpdates()
+      await checkForUpdates()
       return { success: true }
     } catch (error) {
       return { success: false, error: String(error) }

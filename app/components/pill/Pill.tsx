@@ -108,7 +108,6 @@ const Pill = () => {
   const lastVolumeUpdateRef = useRef(0)
   const [volumeHistory, setVolumeHistory] = useState<number[]>([])
   const [appTarget, setAppTarget] = useState<AppTarget | null>(null)
-  const [streamingText, setStreamingText] = useState('')
   const hasBeenShownRef = useRef(false)
 
   const notchPath = useMemo(() => buildNotchPath(PILL_WIDTH, PILL_HEIGHT), [])
@@ -155,7 +154,6 @@ const Pill = () => {
           isManualRecordingRef.current = false
           volumeHistoryRef.current = []
           setVolumeHistory([])
-          setStreamingText('')
         }
       },
     )
@@ -194,13 +192,6 @@ const Pill = () => {
       },
     )
 
-    const unsubStreaming = window.api.on(
-      'streaming-text-update',
-      (payload: { text: string }) => {
-        setStreamingText(payload.text)
-      },
-    )
-
     const unsubUserAuth = window.api.on('user-auth-update', (authUser: any) => {
       if (authUser) {
         analytics.identifyUser(
@@ -224,7 +215,6 @@ const Pill = () => {
       unsubVolume()
       unsubSettings()
       unsubOnboarding()
-      unsubStreaming()
       unsubUserAuth()
     }
   }, [])
@@ -364,24 +354,6 @@ const Pill = () => {
             <Square width={16} height={16} color="white" fill="currentColor" />
           </button>
         </>
-      )
-    }
-
-    if (anyRecording && streamingText) {
-      return (
-        <span
-          style={{
-            fontSize: 12,
-            color: 'rgba(255,255,255,0.9)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            maxWidth: 250,
-            fontFamily: 'Inter, system-ui, sans-serif',
-          }}
-        >
-          {streamingText.slice(-40)}
-        </span>
       )
     }
 

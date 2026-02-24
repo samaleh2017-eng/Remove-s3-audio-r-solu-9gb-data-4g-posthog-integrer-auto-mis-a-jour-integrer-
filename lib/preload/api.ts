@@ -266,10 +266,25 @@ const api = {
       ipcRenderer.on('update-available', handler)
       return () => ipcRenderer.removeListener('update-available', handler)
     },
+    onUpdateNotAvailable: (callback: () => void): (() => void) => {
+      const handler = () => callback()
+      ipcRenderer.on('update-not-available', handler)
+      return () => ipcRenderer.removeListener('update-not-available', handler)
+    },
     onUpdateDownloaded: (callback: () => void): (() => void) => {
       const handler = () => callback()
       ipcRenderer.on('update-downloaded', handler)
       return () => ipcRenderer.removeListener('update-downloaded', handler)
+    },
+    onUpdateError: (callback: (message: string) => void): (() => void) => {
+      const handler = (_: any, message: string) => callback(message)
+      ipcRenderer.on('update-error', handler)
+      return () => ipcRenderer.removeListener('update-error', handler)
+    },
+    onDownloadProgress: (callback: (percent: number) => void): (() => void) => {
+      const handler = (_: any, percent: number) => callback(percent)
+      ipcRenderer.on('update-download-progress', handler)
+      return () => ipcRenderer.removeListener('update-download-progress', handler)
     },
     installUpdate: () => ipcRenderer.send('install-update'),
     getUpdateStatus: () => ipcRenderer.invoke('get-update-status'),

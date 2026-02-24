@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/app/components/ui/button'
 import { Refresh, CheckCircle, Download } from '@mynaui/icons-react'
 
-type UpdateState = 'idle' | 'checking' | 'up-to-date' | 'available' | 'downloading' | 'ready'
+type UpdateState = 'idle' | 'checking' | 'up-to-date' | 'available' | 'downloading' | 'ready' | 'error'
 
 export default function UpdatesSettingsContent() {
   const [updateState, setUpdateState] = useState<UpdateState>('idle')
   const [availableVersion, setAvailableVersion] = useState<string | null>(null)
   const [downloadProgress, setDownloadProgress] = useState<number>(0)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const currentVersion = import.meta.env.VITE_ITO_VERSION as string
 
   useEffect(() => {
@@ -24,8 +25,15 @@ export default function UpdatesSettingsContent() {
     const cleanupAvailable = window.api.updater.onUpdateAvailable(() => {
       window.api.updater.getUpdateStatus().then(s => {
         setUpdateState('available')
+        setErrorMessage(null)
         if (s.availableVersion) setAvailableVersion(s.availableVersion)
       })
+    })
+
+    const cleanupNotAvailable = window.api.updater.onUpdateNotAvailable(() => {
+      setUpdateState('up-to-date')
+      setErrorMessage(null)
+      setTimeout(() => setUpdateState('idle'), 3000)
     })
 
     const cleanupDownloaded = window.api.updater.onUpdateDownloaded(() => {
@@ -33,45 +41,46 @@ export default function UpdatesSettingsContent() {
       setDownloadProgress(100)
     })
 
+    const cleanupError = window.api.updater.onUpdateError((message: string) => {
+      console.error('[Updates] Error:', message)
+      setUpdateState('error')
+      setErrorMessage(message)
+    })
+
+    const cleanupProgress = window.api.updater.onDownloadProgress((percent: number) => {
+      setDownloadProgress(Math.round(percent))
+    })
+
     return () => {
       cleanupAvailable()
+      cleanupNotAvailable()
       cleanupDownloaded()
+      cleanupError()
+      cleanupProgress()
     }
   }, [])
 
-  const handleCheckForUpdates = async () => {
+  const handleCheckForUpdates = useCallback(async () => {
     setUpdateState('checking')
+    setErrorMessage(null)
     await window.api.updater.checkForUpdates()
-    setTimeout(async () => {
-      const status = await window.api.updater.getUpdateStatus()
-      if (status.updateDownloaded) {
-        setUpdateState('ready')
-      } else if (status.updateAvailable) {
-        setUpdateState('available')
-        if (status.availableVersion) setAvailableVersion(status.availableVersion)
-      } else {
-        setUpdateState('up-to-date')
-        setTimeout(() => setUpdateState('idle'), 3000)
-      }
-    }, 5000)
-  }
+  }, [])
 
-  const handleDownload = async () => {
+  const handleDownload = useCallback(async () => {
     setUpdateState('downloading')
     setDownloadProgress(0)
     try {
       await window.api.updater.downloadUpdate()
-      setUpdateState('ready')
     } catch {
       setUpdateState('available')
     }
-  }
+  }, [])
 
-  const handleInstall = () => {
+  const handleInstall = useCallback(() => {
     if (confirm('L\'application va redémarrer pour installer la mise à jour. Continuer ?')) {
       window.api.updater.installUpdate()
     }
-  }
+  }, [])
 
   return (
     <div className="max-w-lg">
@@ -80,7 +89,7 @@ export default function UpdatesSettingsContent() {
           <div className="text-xs text-[#999] uppercase tracking-wider mb-1">Version actuelle</div>
           <div className="text-xl font-semibold text-[#1f1f1f]">v{currentVersion}</div>
         </div>
-        {(updateState === 'up-to-date') && (
+        {updateState === 'up-to-date' && (
           <div className="flex items-center gap-1.5 text-green-600 text-sm font-medium">
             <CheckCircle className="w-4 h-4" />
             À jour
@@ -113,8 +122,15 @@ export default function UpdatesSettingsContent() {
         </div>
       )}
 
+      {updateState === 'error' && errorMessage && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-5 mb-6">
+          <div className="font-semibold text-red-900 mb-1">Erreur de vérification</div>
+          <p className="text-sm text-red-700">{errorMessage}</p>
+        </div>
+      )}
+
       <div className="flex gap-3">
-        {updateState === 'idle' || updateState === 'up-to-date' || updateState === 'checking' ? (
+        {updateState === 'idle' || updateState === 'up-to-date' || updateState === 'checking' || updateState === 'error' ? (
           <Button
             onClick={handleCheckForUpdates}
             disabled={updateState === 'checking'}

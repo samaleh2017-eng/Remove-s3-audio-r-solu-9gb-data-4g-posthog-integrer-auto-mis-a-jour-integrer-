@@ -73,38 +73,43 @@ export function initializeAutoUpdater() {
   }
 }
 
+function sendToMainWindow(event: string, ...args: any[]) {
+  if (
+    mainWindow &&
+    !mainWindow.isDestroyed() &&
+    !mainWindow.webContents.isDestroyed()
+  ) {
+    mainWindow.webContents.send(event, ...args)
+  }
+}
+
 function setupAutoUpdaterEvents() {
   autoUpdater.on('update-available', (info) => {
+    console.log('[Updater] Update available:', info.version)
     updateStatus.updateAvailable = true
     updateStatus.availableVersion = info.version
-    if (
-      mainWindow &&
-      !mainWindow.isDestroyed() &&
-      !mainWindow.webContents.isDestroyed()
-    ) {
-      mainWindow.webContents.send('update-available')
-    }
+    sendToMainWindow('update-available')
+  })
+
+  autoUpdater.on('update-not-available', (info) => {
+    console.log('[Updater] No update available. Latest:', info.version)
+    sendToMainWindow('update-not-available')
   })
 
   autoUpdater.on('update-downloaded', () => {
-    console.log('update downloaded successfully')
+    console.log('[Updater] Update downloaded successfully')
     updateStatus.updateDownloaded = true
-    if (
-      mainWindow &&
-      !mainWindow.isDestroyed() &&
-      !mainWindow.webContents.isDestroyed()
-    ) {
-      mainWindow.webContents.send('update-downloaded')
-    }
+    sendToMainWindow('update-downloaded')
   })
 
   autoUpdater.on('error', error => {
-    console.error('Auto updater error:', error)
+    console.error('[Updater] Error:', error)
+    sendToMainWindow('update-error', error?.message || String(error))
   })
 
   autoUpdater.on('download-progress', progressObj => {
-    const log_message = `Download speed: ${progressObj.bytesPerSecond} - Downloaded ${progressObj.percent.toFixed(2)}% (${progressObj.transferred}/${progressObj.total})`
-    console.log(log_message)
+    console.log(`[Updater] Download: ${progressObj.percent.toFixed(2)}% (${progressObj.transferred}/${progressObj.total})`)
+    sendToMainWindow('update-download-progress', progressObj.percent)
   })
 }
 
@@ -115,9 +120,9 @@ export function stopAutoUpdater() {
   }
 }
 
-export function checkForUpdates(): void {
+export async function checkForUpdates(): Promise<void> {
   try {
-    autoUpdater.checkForUpdates()
+    await autoUpdater.checkForUpdates()
   } catch (e) {
     console.error('[Updater] checkForUpdates error:', e)
   }
