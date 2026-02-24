@@ -21,6 +21,7 @@ export type DetectedContext = {
   browserDomain: string | null
   suggestedMatchType: MatchType
   iconBase64: string | null
+  domainIconBase64: string | null
 }
 
 export type Tone = {

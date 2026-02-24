@@ -233,6 +233,17 @@ export class ContextGrabber {
         appTarget?.toneId,
       )
 
+      if (
+        appTarget &&
+        appTarget.matchType === 'domain' &&
+        appTarget.domain &&
+        !appTarget.iconBase64
+      ) {
+        this.backfillFavicon(appTarget.id, appTarget.domain, userId).catch(
+          () => {},
+        )
+      }
+
       const toneId = appTarget?.toneId || DEFAULT_TONE_ID
       const tone = await ToneTable.findById(toneId)
       console.log('[ContextGrabber] Tone loaded:', tone?.name)
@@ -241,6 +252,30 @@ export class ContextGrabber {
     } catch (error) {
       log.error('[ContextGrabber] Error getting tone:', error)
       return null
+    }
+  }
+
+  private async backfillFavicon(
+    appTargetId: string,
+    domain: string,
+    userId: string,
+  ): Promise<void> {
+    try {
+      const { fetchFavicon } = await import('./../../main/faviconFetcher')
+      const iconBase64 = await fetchFavicon(domain)
+      if (iconBase64) {
+        console.log('[ContextGrabber] Backfilled favicon for domain:', domain)
+        await AppTargetTable.upsert({
+          id: appTargetId,
+          userId,
+          name: domain,
+          matchType: 'domain' as const,
+          domain,
+          iconBase64,
+        })
+      }
+    } catch (error) {
+      console.warn('[ContextGrabber] Favicon backfill failed:', error)
     }
   }
 
