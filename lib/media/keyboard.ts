@@ -5,6 +5,7 @@ import { getNativeBinaryPath } from './native-interface'
 import { BrowserWindow } from 'electron'
 import { itoSessionManager } from '../main/itoSessionManager'
 import { KeyName, keyNameMap, normalizeLegacyKey } from '../types/keyboard'
+import { ItoMode } from '@/app/generated/ito_pb'
 
 interface KeyEvent {
   type: 'keydown' | 'keyup'
@@ -233,6 +234,11 @@ async function handleKeyEventInMain(event: KeyEvent) {
       console.info('lib Shortcut ACTIVATED, starting recording...')
       await itoSessionManager.startSession(currentlyHeldShortcut.mode)
     } else if (activeShortcutId !== currentlyHeldShortcut.id) {
+      const currentShortcut = keyboardShortcuts.find(ks => ks.id === activeShortcutId)
+      if (currentShortcut?.mode === ItoMode.TRANSLATE || currentlyHeldShortcut.mode === ItoMode.TRANSLATE) {
+        console.info('[keyboard] Cannot switch to/from TRANSLATE mode mid-session, ignoring')
+        return
+      }
       // Different shortcut detected while already recording - change mode
       activeShortcutId = currentlyHeldShortcut.id
       console.info(

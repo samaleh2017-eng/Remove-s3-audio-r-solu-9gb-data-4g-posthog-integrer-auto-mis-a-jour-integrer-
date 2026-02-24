@@ -58,6 +58,7 @@ message Empty {}
 enum ItoMode {
   TRANSCRIBE = 0;
   EDIT = 1;
+  TRANSLATE = 2;
 }
 
 // Error Types

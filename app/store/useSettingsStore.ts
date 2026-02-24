@@ -28,6 +28,10 @@ interface SettingsState {
   microphoneDeviceId: string
   microphoneName: string
   keyboardShortcuts: KeyboardShortcutConfig[]
+  translationTargetLanguage: string
+  translationType: 'one_way' | 'two_way'
+  translationLanguageA: string
+  translationLanguageB: string
   setShareAnalytics: (share: boolean) => void
   setLaunchAtLogin: (launch: boolean) => void
   setShowItoBarAlways: (show: boolean) => void
@@ -35,6 +39,10 @@ interface SettingsState {
   setInteractionSounds: (enabled: boolean) => void
   setMuteAudioWhenDictating: (enabled: boolean) => void
   setMicrophoneDeviceId: (deviceId: string, name: string) => void
+  setTranslationTargetLanguage: (lang: string) => void
+  setTranslationType: (type: 'one_way' | 'two_way') => void
+  setTranslationLanguageA: (lang: string) => void
+  setTranslationLanguageB: (lang: string) => void
   createKeyboardShortcut: (mode: ItoMode) => ShortcutResult
   removeKeyboardShortcut: (shortcutId: string) => void
   getItoModeShortcuts: (mode: ItoMode) => KeyboardShortcutConfig[]
@@ -71,6 +79,10 @@ const getInitialState = () => {
         id: crypto.randomUUID(),
       },
     ],
+    translationTargetLanguage: storedSettings?.translationTargetLanguage ?? 'en',
+    translationType: storedSettings?.translationType ?? 'one_way',
+    translationLanguageA: storedSettings?.translationLanguageA ?? 'fr',
+    translationLanguageB: storedSettings?.translationLanguageB ?? 'en',
     firstName: storedSettings?.firstName ?? '',
     lastName: storedSettings?.lastName ?? '',
     email: storedSettings?.email ?? '',
@@ -177,6 +189,10 @@ export const useSettingsStore = create<SettingsState>(set => {
       set(partialState)
       syncToStore(partialState)
     },
+    setTranslationTargetLanguage: createSetter('translationTargetLanguage', 'keyboard'),
+    setTranslationType: createSetter('translationType', 'keyboard'),
+    setTranslationLanguageA: createSetter('translationLanguageA', 'keyboard'),
+    setTranslationLanguageB: createSetter('translationLanguageB', 'keyboard'),
     createKeyboardShortcut: (mode: ItoMode): ShortcutResult => {
       const currentShortcuts = useSettingsStore.getState().keyboardShortcuts
 

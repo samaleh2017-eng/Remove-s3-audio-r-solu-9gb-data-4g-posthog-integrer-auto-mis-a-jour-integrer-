@@ -6,6 +6,13 @@ interface SonioxToken {
   is_final: boolean
 }
 
+export interface SonioxTranslationConfig {
+  type: 'one_way' | 'two_way'
+  targetLanguage?: string
+  languageA?: string
+  languageB?: string
+}
+
 export interface SonioxEvents {
   token: (token: SonioxToken) => void
   'final-text': (text: string) => void
@@ -19,8 +26,9 @@ export class SonioxStreamingService extends EventEmitter {
   private isActive = false
   private accumulatedText = ''
   private hasErrored = false
+  private isTranslationMode = false
 
-  async start(tempApiKey: string): Promise<void> {
+  async start(tempApiKey: string, translationConfig?: SonioxTranslationConfig): Promise<void> {
     if (this.isActive) {
       console.warn(
         '[SonioxStreaming] Already active, stopping previous session',
@@ -30,27 +38,62 @@ export class SonioxStreamingService extends EventEmitter {
 
     this.accumulatedText = ''
     this.hasErrored = false
+    this.isTranslationMode = !!translationConfig
     this.client = new SonioxNodeClient({ api_key: tempApiKey })
 
-    this.session = this.client.realtime.stt({
+    const sessionConfig: any = {
       model: 'stt-rt-v4',
       audio_format: 'pcm_s16le',
       sample_rate: 16000,
       num_channels: 1,
       enable_endpoint_detection: true,
-      language_hints: ['fr'],
-    })
+      enable_language_identification: true,
+    }
+
+    if (!translationConfig) {
+      sessionConfig.language_hints = ['fr']
+    }
+
+    if (translationConfig) {
+      if (translationConfig.type === 'one_way') {
+        sessionConfig.translation = {
+          type: 'one_way',
+          target_language: translationConfig.targetLanguage,
+        }
+      } else if (translationConfig.type === 'two_way') {
+        sessionConfig.translation = {
+          type: 'two_way',
+          language_a: translationConfig.languageA,
+          language_b: translationConfig.languageB,
+        }
+      }
+    }
+
+    this.session = this.client.realtime.stt(sessionConfig)
 
     this.session.on('result', result => {
       try {
         if (result.tokens && result.tokens.length > 0) {
           for (const token of result.tokens) {
-            this.emit('token', {
-              text: token.text,
-              is_final: token.is_final,
-            })
-            if (token.is_final) {
-              this.accumulatedText += token.text
+            if (this.isTranslationMode) {
+              const status = (token as any).translation_status
+              if (status === 'translation') {
+                this.emit('token', {
+                  text: token.text,
+                  is_final: token.is_final,
+                })
+                if (token.is_final) {
+                  this.accumulatedText += token.text
+                }
+              }
+            } else {
+              this.emit('token', {
+                text: token.text,
+                is_final: token.is_final,
+              })
+              if (token.is_final) {
+                this.accumulatedText += token.text
+              }
             }
           }
           this.emit('final-text', this.accumulatedText)
@@ -74,7 +117,7 @@ export class SonioxStreamingService extends EventEmitter {
 
     await this.session.connect()
     this.isActive = true
-    console.log('[SonioxStreaming] Session started')
+    console.log('[SonioxStreaming] Session started', translationConfig ? '(translation mode)' : '(transcription mode)')
   }
 
   private safeEmitError(error: Error): void {
@@ -119,6 +162,7 @@ export class SonioxStreamingService extends EventEmitter {
     }
 
     this.isActive = false
+    this.isTranslationMode = false
     this.session = null
     this.client = null
 
@@ -138,6 +182,7 @@ export class SonioxStreamingService extends EventEmitter {
       console.error('[SonioxStreaming] Error during cancel:', error)
     }
     this.isActive = false
+    this.isTranslationMode = false
     this.hasErrored = false
     this.session = null
     this.client = null

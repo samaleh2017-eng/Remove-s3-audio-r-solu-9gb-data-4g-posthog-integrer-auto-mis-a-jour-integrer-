@@ -4,11 +4,13 @@ import { ItoMode } from '@/app/generated/ito_pb'
 export const ITO_MODE_SHORTCUT_DEFAULTS_MAC = {
   [ItoMode.TRANSCRIBE]: ['fn'],
   [ItoMode.EDIT]: ['control-left', 'fn'],
+  [ItoMode.TRANSLATE]: [],
 }
 
 export const ITO_MODE_SHORTCUT_DEFAULTS_WIN = {
   [ItoMode.TRANSCRIBE]: ['control-left', 'command-left'],
   [ItoMode.EDIT]: ['option-left', 'control-left'],
+  [ItoMode.TRANSLATE]: [],
 }
 
 // Helper to detect platform - works in both main and renderer process

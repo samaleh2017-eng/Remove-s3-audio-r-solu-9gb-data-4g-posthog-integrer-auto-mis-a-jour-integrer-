@@ -35,6 +35,10 @@ export interface SettingsStore {
   firstName: string
   lastName: string
   email: string
+  translationTargetLanguage: string
+  translationType: 'one_way' | 'two_way'
+  translationLanguageA: string
+  translationLanguageB: string
 }
 
 export interface AuthState {
@@ -138,10 +142,21 @@ export const defaultValues: AppStore = {
         ) as KeyName[],
         mode: ItoMode.EDIT,
       },
+      {
+        id: crypto.randomUUID(),
+        keys: ITO_MODE_SHORTCUT_DEFAULTS[ItoMode.TRANSLATE].map(
+          normalizeLegacyKey,
+        ) as KeyName[],
+        mode: ItoMode.TRANSLATE,
+      },
     ],
     firstName: '',
     lastName: '',
     email: '',
+    translationTargetLanguage: 'en',
+    translationType: 'one_way' as const,
+    translationLanguageA: 'fr',
+    translationLanguageB: 'en',
   },
   main: { navExpanded: true },
   auth: { user: null, tokens: null, state: createNewAuthState() },

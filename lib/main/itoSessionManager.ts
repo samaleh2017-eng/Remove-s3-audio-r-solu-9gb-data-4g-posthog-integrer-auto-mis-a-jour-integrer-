@@ -6,14 +6,15 @@ import { TextInserter } from './text/TextInserter'
 import { interactionManager } from './interactions/InteractionManager'
 import { contextGrabber, ContextData } from './context/ContextGrabber'
 import { GrammarRulesService } from './grammar/GrammarRulesService'
-import { getAdvancedSettings } from './store'
+import { getAdvancedSettings, store } from './store'
 import log from 'electron-log'
 import { preventAppNap, allowAppNap } from './appNap'
 import { timingCollector, TimingEventName } from './timing/TimingCollector'
-import { SonioxStreamingService } from './soniox/SonioxStreamingService'
+import { SonioxStreamingService, SonioxTranslationConfig } from './soniox/SonioxStreamingService'
 import { sonioxTempKeyManager } from './soniox/SonioxTempKeyManager'
 import { audioRecorderService } from '../media/audio'
 import { itoHttpClient } from '../clients/itoHttpClient'
+import { STORE_KEYS } from '../constants/store-keys'
 
 export class ItoSessionManager {
   private readonly MINIMUM_AUDIO_DURATION_MS = 100
@@ -54,7 +55,7 @@ export class ItoSessionManager {
     const { llm } = getAdvancedSettings()
     const isSoniox = llm?.asrProvider === 'soniox'
 
-    if (isSoniox) {
+    if (mode === ItoMode.TRANSLATE || isSoniox) {
       await this.startSonioxSession(mode)
     } else {
       await this.startGrpcSession(mode)
@@ -128,7 +129,7 @@ export class ItoSessionManager {
           )
           this.handleSonioxStreamError(error)
         })
-        await this.sonioxService.start(tempKey)
+        await this.sonioxService.start(tempKey, this.getTranslationConfig())
 
         if (generation !== this.sonioxSessionGeneration) {
           console.log(
@@ -160,8 +161,17 @@ export class ItoSessionManager {
         console.log(
           '[itoSessionManager] Soniox connected, buffered chunks flushed',
         )
+
+        if (this.sonioxService) {
+          this.sonioxService.on('final-text', (text: string) => {
+            recordingStateNotifier.notifyStreamingText(text)
+          })
+        }
       }
     } catch (error) {
+      if (this.currentMode === ItoMode.TRANSLATE) {
+        console.error('[itoSessionManager] Translation mode requires Soniox. Ensure Soniox API key is configured on the server.')
+      }
       log.error('[itoSessionManager] Failed to start Soniox session:', error)
       this.sonioxService = null
     }
@@ -380,7 +390,7 @@ export class ItoSessionManager {
 
       const requestBody: Record<string, any> = {
         transcript: rawTranscript,
-        mode: mode === ItoMode.EDIT ? 'edit' : 'transcribe',
+        mode: mode === ItoMode.EDIT ? 'edit' : mode === ItoMode.TRANSLATE ? 'translate' : 'transcribe',
         llmSettings: {
           llmProvider: llm?.llmProvider || undefined,
           llmModel: llm?.llmModel || undefined,
@@ -476,6 +486,26 @@ export class ItoSessionManager {
       }
     }
     return lines.join('\n')
+  }
+
+  private getTranslationConfig(): SonioxTranslationConfig | undefined {
+    if (this.currentMode !== ItoMode.TRANSLATE) return undefined
+
+    const settings = store.get(STORE_KEYS.SETTINGS)
+    const type = settings?.translationType || 'one_way'
+
+    if (type === 'one_way') {
+      return {
+        type: 'one_way',
+        targetLanguage: settings?.translationTargetLanguage || 'en',
+      }
+    } else {
+      return {
+        type: 'two_way',
+        languageA: settings?.translationLanguageA || 'fr',
+        languageB: settings?.translationLanguageB || 'en',
+      }
+    }
   }
 
   private cleanupSonioxState() {
