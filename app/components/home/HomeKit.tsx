@@ -294,7 +294,7 @@ export default function HomeKit() {
       >
         <DialogContent
           showCloseButton={false}
-          className="w-[80vw] h-[80vh] p-0 overflow-hidden rounded-2xl border border-[#E8E8E8] bg-white shadow-[0_24px_80px_rgba(0,0,0,0.12)]"
+          className="max-w-none w-[80vw] h-[80vh] p-0 overflow-hidden rounded-2xl border border-[#E8E8E8] bg-white shadow-[0_24px_80px_rgba(0,0,0,0.12)]"
         >
           <SettingsContent />
         </DialogContent>

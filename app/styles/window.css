@@ -11,8 +11,8 @@
   --window-titlebar-font-weight: 500;
   --window-c-popup-font-weight: 500;
 
-  --window-c-background: var(--background, #ffffff);
-  --window-c-titlebar-background: var(--background, #ffffff);
+  --window-c-background: #E4E1DE;
+  --window-c-titlebar-background: #E4E1DE;
   --window-c-titlebar-border: transparent;
   --window-c-text: var(--foreground, #1f1f1f);
   --window-c-hover: #f5f5f5;
