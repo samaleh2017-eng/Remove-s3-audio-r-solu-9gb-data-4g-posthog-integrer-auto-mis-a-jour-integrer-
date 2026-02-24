@@ -4,13 +4,15 @@ import { getLlmProvider } from '../clients/providerUtils.js'
 import { DEFAULT_ADVANCED_SETTINGS } from '../constants/generated-defaults.js'
 import { ItoMode } from '../generated/ito_pb.js'
 import { getPromptForMode, createUserPromptWithContext } from './ito/helpers.js'
+import { getTranslationBasePrompt, getTranslationTonePrompt } from './ito/translationHelpers.js'
 import { applyReplacements, filterLeakedContext } from './ito/llmUtils.js'
 import type { ItoContext } from './ito/types.js'
 import type { SupabaseJwtPayload } from '../auth/supabaseJwt.js'
 
 interface AdjustTranscriptBody {
   transcript: string
-  mode: 'transcribe' | 'edit'
+  mode: 'transcribe' | 'edit' | 'translate'
+  targetLanguage?: string
   context?: {
     windowTitle?: string
     appName?: string
@@ -88,7 +90,9 @@ export const registerSonioxRoutes = async (
         return
       }
 
-      const mode = body.mode === 'edit' ? ItoMode.EDIT : ItoMode.TRANSCRIBE
+      const mode = body.mode === 'edit' ? ItoMode.EDIT
+                   : body.mode === 'translate' ? ItoMode.TRANSLATE
+                   : ItoMode.TRANSCRIBE
 
       const windowContext: ItoContext = {
         windowTitle: body.context?.windowTitle || '',
@@ -115,9 +119,15 @@ export const registerSonioxRoutes = async (
       const hasTonePrompt = windowContext.tonePrompt && windowContext.tonePrompt.trim() !== ''
       const basePrompt = getPromptForMode(mode, advancedSettings)
 
-      const systemPrompt = hasTonePrompt
-        ? windowContext.tonePrompt
-        : basePrompt
+      let systemPrompt: string
+      if (mode === ItoMode.TRANSLATE) {
+        const targetLang = body.targetLanguage || 'en'
+        systemPrompt = hasTonePrompt
+          ? getTranslationTonePrompt(windowContext.tonePrompt, targetLang)
+          : getTranslationBasePrompt(basePrompt, targetLang)
+      } else {
+        systemPrompt = hasTonePrompt ? windowContext.tonePrompt : basePrompt
+      }
 
       const userPrompt = createUserPromptWithContext(trimmedTranscript, windowContext)
 

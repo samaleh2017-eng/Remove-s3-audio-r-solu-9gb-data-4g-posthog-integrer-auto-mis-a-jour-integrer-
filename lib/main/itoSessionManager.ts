@@ -400,6 +400,11 @@ export class ItoSessionManager {
         },
       }
 
+      if (mode === ItoMode.TRANSLATE) {
+        const settings = store.get(STORE_KEYS.SETTINGS)
+        requestBody.targetLanguage = settings?.translationTargetLanguage || 'en'
+      }
+
       if (ctx) {
         requestBody.context = {
           windowTitle: ctx.windowTitle || '',
