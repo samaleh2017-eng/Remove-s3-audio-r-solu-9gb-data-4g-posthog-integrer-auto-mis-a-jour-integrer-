@@ -7,6 +7,7 @@ import { hardKillAll, teardown } from './teardown'
 export interface UpdateStatus {
   updateAvailable: boolean
   updateDownloaded: boolean
+  availableVersion?: string
 }
 
 let updateStatus: UpdateStatus = {
@@ -73,8 +74,9 @@ export function initializeAutoUpdater() {
 }
 
 function setupAutoUpdaterEvents() {
-  autoUpdater.on('update-available', () => {
+  autoUpdater.on('update-available', (info) => {
     updateStatus.updateAvailable = true
+    updateStatus.availableVersion = info.version
     if (
       mainWindow &&
       !mainWindow.isDestroyed() &&
@@ -110,6 +112,14 @@ export function stopAutoUpdater() {
   if (updateCheckTimer) {
     clearInterval(updateCheckTimer)
     updateCheckTimer = null
+  }
+}
+
+export function checkForUpdates(): void {
+  try {
+    autoUpdater.checkForUpdates()
+  } catch (e) {
+    console.error('[Updater] checkForUpdates error:', e)
   }
 }
 

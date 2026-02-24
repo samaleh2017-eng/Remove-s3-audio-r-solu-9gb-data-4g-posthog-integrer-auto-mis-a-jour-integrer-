@@ -7,6 +7,7 @@ import AdvancedSettingsContent from './settings/AdvancedSettingsContent'
 import PricingBillingSettingsContent from './settings/PricingBillingSettingsContent'
 import MyDetailsSettingsContent from './settings/MyDetailsSettingsContent'
 import PerformanceSettingsContent from './settings/PerformanceSettingsContent'
+import UpdatesSettingsContent from './settings/UpdatesSettingsContent'
 import {
   FineTune,
   Keyboard,
@@ -16,6 +17,7 @@ import {
   Users,
   CreditCard,
   Lightning,
+  Download,
 } from '@mynaui/icons-react'
 
 const settingsNavItems = [
@@ -24,6 +26,7 @@ const settingsNavItems = [
   { id: 'audio', label: 'Audio & Mic', icon: Microphone },
   { id: 'performance', label: 'Performance', icon: Lightning },
   { id: 'advanced', label: 'Advanced', icon: Code },
+  { id: 'updates', label: 'Updates', icon: Download },
 ]
 
 const accountNavItems = [
@@ -38,6 +41,7 @@ const pageTitles: Record<string, string> = {
   audio: 'Audio & Mic',
   performance: 'Performance',
   advanced: 'Advanced',
+  updates: 'Updates',
   'my-details': 'My Details',
   account: 'Account',
   'pricing-billing': 'Plans and Billing',
@@ -64,6 +68,8 @@ export default function SettingsContent() {
         return <AccountSettingsContent />
       case 'advanced':
         return <AdvancedSettingsContent />
+      case 'updates':
+        return <UpdatesSettingsContent />
       default:
         return <GeneralSettingsContent />
     }
