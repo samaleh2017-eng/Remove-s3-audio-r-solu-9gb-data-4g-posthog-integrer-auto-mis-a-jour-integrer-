@@ -153,8 +153,6 @@ export class SonioxStreamingService extends EventEmitter {
       return this.accumulatedText
     }
 
-    this.isActive = false
-
     try {
       if (!this.hasErrored) {
         await this.session.finish()
@@ -164,16 +162,13 @@ export class SonioxStreamingService extends EventEmitter {
       console.error('[SonioxStreaming] Error during stop:', error)
     }
 
+    this.isActive = false
     const finalText = this.accumulatedText
 
     this.isTranslationMode = false
     this.session = null
     this.client = null
 
-    console.log(
-      '[SonioxStreaming] Session stopped, final text length:',
-      finalText.length,
-    )
     return finalText
   }
 
