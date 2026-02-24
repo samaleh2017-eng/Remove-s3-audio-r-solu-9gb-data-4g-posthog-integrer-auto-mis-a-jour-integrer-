@@ -4,7 +4,7 @@ import { getLlmProvider } from '../clients/providerUtils.js'
 import { DEFAULT_ADVANCED_SETTINGS } from '../constants/generated-defaults.js'
 import { ItoMode } from '../generated/ito_pb.js'
 import { getPromptForMode, createUserPromptWithContext } from './ito/helpers.js'
-import { getTranslationBasePrompt, getTranslationTonePrompt } from './ito/translationHelpers.js'
+import { getTranslationBasePrompt, getTranslationTonePrompt, getLanguageNameFromCode } from './ito/translationHelpers.js'
 import { applyReplacements, filterLeakedContext } from './ito/llmUtils.js'
 import type { ItoContext } from './ito/types.js'
 import type { SupabaseJwtPayload } from '../auth/supabaseJwt.js'
@@ -131,8 +131,17 @@ export const registerSonioxRoutes = async (
 
       const userPrompt = createUserPromptWithContext(trimmedTranscript, windowContext)
 
+      let finalUserPrompt = userPrompt
+      if (mode === ItoMode.TRANSLATE) {
+        const targetLang = body.targetLanguage || 'en'
+        const langName = getLanguageNameFromCode(targetLang)
+        finalUserPrompt = `[LANGUAGE REMINDER: Output MUST be in ${langName}. Ignore the language of context metadata below.]\n${userPrompt}`
+      } else {
+        finalUserPrompt = `[LANGUAGE RULE: Your output MUST be in the SAME language as the user's dictated text below. Do NOT translate it. Do NOT switch to the language of the context metadata. Preserve the original language of the spoken text exactly.]\n${userPrompt}`
+      }
+
       const llmProvider = getLlmProvider(advancedSettings.llmProvider)
-      let adjustedTranscript = await llmProvider.adjustTranscript(userPrompt, {
+      let adjustedTranscript = await llmProvider.adjustTranscript(finalUserPrompt, {
         temperature: advancedSettings.llmTemperature,
         model: advancedSettings.llmModel,
         prompt: systemPrompt,

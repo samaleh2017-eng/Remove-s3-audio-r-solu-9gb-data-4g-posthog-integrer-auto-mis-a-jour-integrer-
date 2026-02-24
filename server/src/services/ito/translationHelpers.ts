@@ -16,7 +16,7 @@ Do NOT re-translate the content.
 ${tonePrompt}`
 }
 
-function getLanguageNameFromCode(code: string): string {
+export function getLanguageNameFromCode(code: string): string {
   const map: Record<string, string> = {
     'af': 'Afrikaans', 'sq': 'Albanian', 'ar': 'Arabic', 'az': 'Azerbaijani',
     'eu': 'Basque', 'be': 'Belarusian', 'bn': 'Bengali', 'bs': 'Bosnian',

@@ -1054,6 +1054,13 @@ ipcMain.handle('app-targets:get-current', async () => {
   const window = await getActiveWindow()
   if (!window) return null
 
+  const browserInfo = await getBrowserUrl(window)
+
+  if (browserInfo.domain) {
+    const domainTarget = await AppTargetTable.findByDomain(browserInfo.domain, userId)
+    if (domainTarget) return domainTarget
+  }
+
   const id = normalizeAppTargetId(window.appName)
   return AppTargetTable.findById(id, userId)
 })

@@ -73,7 +73,9 @@ jobs:
       - name: Package Windows app
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          VITE_ITO_VERSION: ${{ steps.version.outputs.version_no_v }}
           VITE_ITO_ENV: dev
+          ITO_ENV: dev
         run: bunx electron-builder --config electron-builder.config.js --win --x64 --publish=never
 
       - name: List output files

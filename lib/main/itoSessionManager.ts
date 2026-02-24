@@ -161,12 +161,6 @@ export class ItoSessionManager {
         console.log(
           '[itoSessionManager] Soniox connected, buffered chunks flushed',
         )
-
-        if (this.sonioxService) {
-          this.sonioxService.on('final-text', (text: string) => {
-            recordingStateNotifier.notifyStreamingText(text)
-          })
-        }
       }
     } catch (error) {
       if (this.currentMode === ItoMode.TRANSLATE) {
@@ -431,7 +425,7 @@ export class ItoSessionManager {
         { requireAuth: true },
       )
 
-      if (response.success && response.transcript) {
+      if (response?.success && response?.transcript) {
         let textToInsert = response.transcript
 
         const { grammarServiceEnabled } = getAdvancedSettings()
@@ -443,7 +437,7 @@ export class ItoSessionManager {
 
         this.textInserter.insertText(textToInsert)
       } else {
-        console.error('[itoSessionManager] LLM adjustment failed:', response.error)
+        console.error('[itoSessionManager] LLM adjustment failed:', response?.error)
         this.textInserter.insertText(rawTranscript)
       }
     } catch (error) {

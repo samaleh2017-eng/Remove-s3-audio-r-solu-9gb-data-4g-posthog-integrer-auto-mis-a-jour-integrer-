@@ -108,6 +108,7 @@ const Pill = () => {
   const lastVolumeUpdateRef = useRef(0)
   const [volumeHistory, setVolumeHistory] = useState<number[]>([])
   const [appTarget, setAppTarget] = useState<AppTarget | null>(null)
+  const isRecordingRef = useRef(false)
   const hasBeenShownRef = useRef(false)
 
   const notchPath = useMemo(() => buildNotchPath(PILL_WIDTH, PILL_HEIGHT), [])
@@ -131,15 +132,24 @@ const Pill = () => {
     const unsubRecording = window.api.on(
       'recording-state-update',
       (state: RecordingStatePayload) => {
+        const wasRecording = isRecordingRef.current
+        isRecordingRef.current = state.isRecording
         setIsRecording(state.isRecording)
 
-        if (interactionSoundsRef.current) {
+        if (state.appTargetName || state.appTargetIconBase64) {
+          setAppTarget({
+            name: state.appTargetName || 'Ito',
+            iconBase64: state.appTargetIconBase64 || null,
+          } as AppTarget)
+        }
+
+        if (interactionSoundsRef.current && wasRecording !== state.isRecording) {
           soundPlayer.play(
             state.isRecording ? 'recording-start' : 'recording-stop',
           )
         }
 
-        if (!isManualRecordingRef.current) {
+        if (!isManualRecordingRef.current && wasRecording !== state.isRecording) {
           const analyticsEvent = state.isRecording
             ? ANALYTICS_EVENTS.RECORDING_STARTED
             : ANALYTICS_EVENTS.RECORDING_COMPLETED
@@ -154,6 +164,7 @@ const Pill = () => {
           isManualRecordingRef.current = false
           volumeHistoryRef.current = []
           setVolumeHistory([])
+          setAppTarget(null)
         }
       },
     )
@@ -218,15 +229,6 @@ const Pill = () => {
       unsubUserAuth()
     }
   }, [])
-
-  useEffect(() => {
-    if (isRecording || isManualRecording) {
-      window.api.appTargets
-        .getCurrent()
-        .then(setAppTarget)
-        .catch(() => setAppTarget(null))
-    }
-  }, [isRecording, isManualRecording])
 
   useEffect(() => {
     if (!isRecording && !isManualRecording && !isProcessing) {

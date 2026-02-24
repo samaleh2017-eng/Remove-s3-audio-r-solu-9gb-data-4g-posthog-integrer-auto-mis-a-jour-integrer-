@@ -22,7 +22,6 @@ const mockRecordingStateNotifier = {
   notifyRecordingStopped: mock(),
   notifyProcessingStarted: mock(),
   notifyProcessingStopped: mock(),
-  notifyStreamingText: mock(),
 }
 mock.module('./recordingStateNotifier', () => ({
   recordingStateNotifier: mockRecordingStateNotifier,
@@ -658,7 +657,7 @@ describe('itoSessionManager', () => {
       expect(mockSonioxStreamingService.start).not.toHaveBeenCalled()
     })
 
-    test('should not show streaming text in pill during recording', async () => {
+    test('should not register streaming text listener during recording', async () => {
       const { ItoSessionManager } = await import('./itoSessionManager')
       const session = new ItoSessionManager()
 
@@ -666,9 +665,10 @@ describe('itoSessionManager', () => {
       await new Promise(resolve => setTimeout(resolve, 10))
       await session.completeSession()
 
-      expect(
-        mockRecordingStateNotifier.notifyStreamingText,
-      ).not.toHaveBeenCalled()
+      expect(mockSonioxStreamingService.on).not.toHaveBeenCalledWith(
+        'final-text',
+        expect.any(Function),
+      )
     })
 
     test('should handle Soniox connection failure gracefully', async () => {

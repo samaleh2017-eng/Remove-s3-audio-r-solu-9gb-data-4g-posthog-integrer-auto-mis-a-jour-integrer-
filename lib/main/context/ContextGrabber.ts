@@ -204,34 +204,16 @@ export class ContextGrabber {
       const userId = getCurrentUserId() || DEFAULT_LOCAL_USER_ID
       if (!appName) return null
 
-      console.log(
-        '[ContextGrabber] Looking for tone - userId:',
-        userId,
-        '| appName:',
-        appName,
-        '| browserDomain:',
-        browserDomain,
-      )
-
       let appTarget: AppTarget | null = null
 
       if (browserDomain) {
         appTarget = await AppTargetTable.findByDomain(browserDomain, userId)
-        console.log('[ContextGrabber] Domain match result:', appTarget?.name)
       }
 
       if (!appTarget) {
         const appId = normalizeAppTargetId(appName)
         appTarget = await AppTargetTable.findById(appId, userId)
-        console.log('[ContextGrabber] App match result:', appTarget?.name)
       }
-
-      console.log(
-        '[ContextGrabber] Final AppTarget found:',
-        appTarget?.name,
-        '| toneId:',
-        appTarget?.toneId,
-      )
 
       if (
         appTarget &&
@@ -246,7 +228,6 @@ export class ContextGrabber {
 
       const toneId = appTarget?.toneId || DEFAULT_TONE_ID
       const tone = await ToneTable.findById(toneId)
-      console.log('[ContextGrabber] Tone loaded:', tone?.name)
 
       return tone
     } catch (error) {
@@ -264,7 +245,7 @@ export class ContextGrabber {
       const { fetchFavicon } = await import('./../../main/faviconFetcher')
       const iconBase64 = await fetchFavicon(domain)
       if (iconBase64) {
-        console.log('[ContextGrabber] Backfilled favicon for domain:', domain)
+
         await AppTargetTable.upsert({
           id: appTargetId,
           userId,

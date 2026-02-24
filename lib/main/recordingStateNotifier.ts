@@ -4,62 +4,85 @@ import {
   IPC_EVENTS,
   RecordingStatePayload,
   ProcessingStatePayload,
-  StreamingTextPayload,
 } from '../types/ipc'
+import { getActiveWindow } from '../media/active-application'
+import { getBrowserUrl } from '../media/browser-url'
+import { normalizeAppTargetId } from '../utils/appTargetUtils'
+import { AppTargetTable } from './sqlite/appTargetRepo'
+import { getCurrentUserId } from './store'
 
-/**
- * Helper class to notify UI windows about recording state changes.
- */
+const DEFAULT_LOCAL_USER_ID = 'local-user'
+
 export class RecordingStateNotifier {
+  private generation = 0
+
   public notifyRecordingStarted(mode: ItoMode) {
-    console.log('[RecordingStateNotifier] Notifying recording started:', {
-      mode,
-    })
+    const gen = ++this.generation
+
     this.sendToWindows(IPC_EVENTS.RECORDING_STATE_UPDATE, {
       isRecording: true,
       mode,
     })
+
+    this.resolveAppTarget()
+      .then(target => {
+        if (gen !== this.generation) return
+        if (target) {
+          this.sendToWindows(IPC_EVENTS.RECORDING_STATE_UPDATE, {
+            isRecording: true,
+            mode,
+            appTargetName: target.name,
+            appTargetIconBase64: target.iconBase64,
+          })
+        }
+      })
+      .catch(() => {})
   }
 
   public notifyRecordingStopped() {
-    console.log('[RecordingStateNotifier] Notifying recording stopped')
+    ++this.generation
     this.sendToWindows(IPC_EVENTS.RECORDING_STATE_UPDATE, {
       isRecording: false,
     })
   }
 
   public notifyProcessingStarted() {
-    console.log('[RecordingStateNotifier] Notifying processing started')
     this.sendToWindows(IPC_EVENTS.PROCESSING_STATE_UPDATE, {
       isProcessing: true,
     })
   }
 
   public notifyProcessingStopped() {
-    console.log('[RecordingStateNotifier] Notifying processing stopped')
     this.sendToWindows(IPC_EVENTS.PROCESSING_STATE_UPDATE, {
       isProcessing: false,
     })
   }
 
-  public notifyStreamingText(text: string) {
-    this.sendToWindows(IPC_EVENTS.STREAMING_TEXT_UPDATE, {
-      text,
-      isFinal: false,
-    })
+  private async resolveAppTarget() {
+    const userId = getCurrentUserId() || DEFAULT_LOCAL_USER_ID
+    const window = await getActiveWindow()
+    if (!window) return null
+
+    const browserInfo = await getBrowserUrl(window)
+
+    if (browserInfo.domain) {
+      const domainTarget = await AppTargetTable.findByDomain(
+        browserInfo.domain,
+        userId,
+      )
+      if (domainTarget) return domainTarget
+    }
+
+    const id = normalizeAppTargetId(window.appName)
+    return AppTargetTable.findById(id, userId)
   }
 
   private sendToWindows(
     event: string,
-    payload:
-      | RecordingStatePayload
-      | ProcessingStatePayload
-      | StreamingTextPayload,
+    payload: RecordingStatePayload | ProcessingStatePayload,
   ) {
-    // Send to pill window
     getPillWindow()?.webContents.send(event, payload)
 
-    // Send to main window if it exists and is not destroyed
     if (
       mainWindow &&
       !mainWindow.isDestroyed() &&
