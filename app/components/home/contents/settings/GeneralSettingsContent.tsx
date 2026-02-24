@@ -72,7 +72,7 @@ export default function GeneralSettingsContent() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl bg-[#F2F2F2]">
+      <div className="rounded-xl bg-white">
         <SettingRow>
           <div>
             <div className="text-sm font-medium text-[#1f1f1f]">Share analytics</div>
@@ -130,7 +130,7 @@ export default function GeneralSettingsContent() {
       <div className="text-xs font-semibold tracking-[1.5px] text-[#999] uppercase">
         Log Management
       </div>
-      <div className="rounded-xl bg-[#F2F2F2]">
+      <div className="rounded-xl bg-white">
         <SettingRow>
           <div>
             <div className="text-sm font-medium text-[#1f1f1f]">Download Logs</div>

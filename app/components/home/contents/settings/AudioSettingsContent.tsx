@@ -23,7 +23,7 @@ export default function AudioSettingsContent() {
   } = useSettingsStore()
 
   return (
-    <div className="rounded-xl bg-[#F2F2F2]">
+    <div className="rounded-xl bg-white">
       <SettingRow>
         <div>
           <div className="text-sm font-medium text-[#1f1f1f]">Interaction Sounds</div>

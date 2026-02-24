@@ -191,7 +191,7 @@ export function ManualAddDialog({ open, onOpenChange }: Props) {
                       className={`w-full text-left px-3 py-2 text-sm transition-colors ${
                         selectedApp === appName
                           ? 'bg-blue-50 text-blue-700 font-medium'
-                          : 'hover:bg-[var(--color-surface)]'
+                          : 'hover:bg-[#F3F2F1]'
                       }`}
                     >
                       {appName}

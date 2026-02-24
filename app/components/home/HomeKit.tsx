@@ -198,7 +198,7 @@ export default function HomeKit() {
   }
 
   return (
-    <div className="flex h-full bg-[var(--background)]">
+    <div className="flex h-full bg-[#E4E1DE]">
       {/* Sidebar */}
       <div
         className={`${navExpanded ? 'w-56' : 'w-[72px]'} flex flex-col justify-between py-5 px-3 transition-all duration-200 ease-in-out flex-shrink-0`}
@@ -284,7 +284,7 @@ export default function HomeKit() {
       </div>
 
       {/* Main Content - White card with "page in page" effect */}
-      <div className="flex-1 bg-[var(--color-surface)] rounded-[var(--radius-lg)] my-2 mr-2 shadow-[var(--shadow-soft)] overflow-hidden flex flex-col border border-[var(--border)]">
+      <div className="flex-1 bg-[#F3F2F1] rounded-[var(--radius-lg)] my-2 mr-2 shadow-[var(--shadow-soft)] overflow-hidden flex flex-col border border-[var(--border)]">
         <div className="flex-1 overflow-y-auto pt-10">{renderContent()}</div>
       </div>
 
@@ -294,7 +294,7 @@ export default function HomeKit() {
       >
         <DialogContent
           showCloseButton={false}
-          className="max-w-[1100px] w-[95vw] h-[85vh] p-0 overflow-hidden rounded-2xl border border-[#E8E8E8] bg-white shadow-[0_24px_80px_rgba(0,0,0,0.12)]"
+          className="w-[80vw] h-[80vh] p-0 overflow-hidden rounded-2xl border border-[#E8E8E8] bg-white shadow-[0_24px_80px_rgba(0,0,0,0.12)]"
         >
           <SettingsContent />
         </DialogContent>

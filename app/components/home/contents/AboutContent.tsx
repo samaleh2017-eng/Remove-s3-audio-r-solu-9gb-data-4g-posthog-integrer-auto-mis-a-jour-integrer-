@@ -30,7 +30,7 @@ function AboutCard({
       <p className="text-[var(--color-subtext)] mb-6 leading-relaxed">{description}</p>
       <Button
         onClick={onClick}
-        className="w-fit bg-white text-foreground border border-[var(--border)] hover:bg-[var(--color-surface)] rounded-[var(--radius-lg)] cursor-pointer"
+        className="w-fit bg-white text-foreground border border-[var(--border)] hover:bg-[#F3F2F1] rounded-[var(--radius-lg)] cursor-pointer"
         style={{
           padding: '20px 28px',
         }}

@@ -8,7 +8,7 @@ export default function KeyboardSettingsContent() {
   const editShortcuts = getItoModeShortcuts(ItoMode.EDIT)
 
   return (
-    <div className="rounded-xl bg-[#F2F2F2]">
+    <div className="rounded-xl bg-white">
       <div className="flex gap-4 justify-between py-4 px-5 border-b border-[#EBEBEB]">
         <div className="w-1/3">
           <div className="text-sm font-medium text-[#1f1f1f] mb-2">Keyboard Shortcut</div>

@@ -402,7 +402,7 @@ export default function AdvancedSettingsContent() {
             </h3>
             <button
               onClick={handleRestoreDefaults}
-              className="px-3 py-1 text-sm text-[var(--color-subtext)] hover:text-foreground border border-[var(--border)] rounded-md hover:bg-[var(--color-surface)] transition-colors"
+              className="px-3 py-1 text-sm text-[var(--color-subtext)] hover:text-foreground border border-[var(--border)] rounded-md hover:bg-[#F3F2F1] transition-colors"
             >
               Restore Defaults
             </button>
