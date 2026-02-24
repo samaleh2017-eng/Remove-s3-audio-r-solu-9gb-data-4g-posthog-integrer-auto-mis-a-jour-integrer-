@@ -34,7 +34,7 @@ import {
   UserDetailsTable,
   UserAdditionalInfoTable,
 } from '../main/sqlite/userDetailsRepo'
-import { getActiveWindow } from '../media/active-application'
+import { getActiveWindow, getActiveWindowWithIcon } from '../media/active-application'
 import { getBrowserUrl } from '../media/browser-url'
 import { normalizeAppTargetId } from '../utils/appTargetUtils'
 import { audioRecorderService } from '../media/audio'
@@ -970,7 +970,7 @@ ipcMain.handle('app-targets:detect-current', async () => {
 
   await new Promise(resolve => setTimeout(resolve, 2500))
 
-  const window = await getActiveWindow()
+  const window = await getActiveWindowWithIcon()
   const browserInfo = await getBrowserUrl(window)
 
   if (isMac) {
@@ -1005,6 +1005,7 @@ ipcMain.handle('app-targets:detect-current', async () => {
     browserUrl: browserInfo.url,
     browserDomain: browserInfo.domain,
     suggestedMatchType: browserInfo.domain ? 'domain' : 'app',
+    iconBase64: window.iconBase64 || null,
   }
 })
 

@@ -16,6 +16,10 @@ export type ActiveWindow = {
   }
 }
 
+export type ActiveWindowWithIcon = ActiveWindow & {
+  iconBase64?: string | null
+}
+
 export async function getActiveWindow(): Promise<ActiveWindow | null> {
   const path = getNativeBinaryPath(nativeModuleName)
   if (!path) {
@@ -38,4 +42,27 @@ export async function getActiveWindow(): Promise<ActiveWindow | null> {
   } else {
     return null
   }
+}
+
+export async function getActiveWindowWithIcon(): Promise<ActiveWindowWithIcon | null> {
+  const path = getNativeBinaryPath(nativeModuleName)
+  if (!path) {
+    console.error(`Cannot determine ${nativeModuleName} binary path`)
+    return null
+  }
+
+  const result = (await new Promise(resolve => {
+    execFile(path, ['--with-icon'], (err, stdout, stderr) => {
+      if (err) {
+        console.error(`${nativeModuleName} error:`, err, stderr)
+        return resolve('null')
+      }
+      return resolve(stdout.trim())
+    })
+  })) as string
+
+  if (result) {
+    return JSON.parse(result) as ActiveWindowWithIcon
+  }
+  return null
 }
