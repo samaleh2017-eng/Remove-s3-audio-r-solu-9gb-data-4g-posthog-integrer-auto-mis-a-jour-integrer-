@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/app/components/ui/button'
 import { Refresh, CheckCircle, Download } from '@mynaui/icons-react'
+import { useUpdateOverlayStore } from '@/app/store/useUpdateOverlayStore'
 
-type UpdateState = 'idle' | 'checking' | 'up-to-date' | 'available' | 'downloading' | 'ready' | 'error'
+type UpdateState = 'idle' | 'checking' | 'up-to-date' | 'available' | 'downloading' | 'ready' | 'installing' | 'error'
 
 export default function UpdatesSettingsContent() {
   const [updateState, setUpdateState] = useState<UpdateState>('idle')
@@ -10,6 +11,7 @@ export default function UpdatesSettingsContent() {
   const [downloadProgress, setDownloadProgress] = useState<number>(0)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const currentVersion = import.meta.env.VITE_ITO_VERSION as string
+  const showOverlay = useUpdateOverlayStore(s => s.show)
 
   useEffect(() => {
     window.api.updater.getUpdateStatus().then(status => {
@@ -77,22 +79,25 @@ export default function UpdatesSettingsContent() {
   }, [])
 
   const handleInstall = useCallback(() => {
-    if (confirm('L\'application va redémarrer pour installer la mise à jour. Continuer ?')) {
+    if (updateState === 'installing') return
+    setUpdateState('installing')
+    showOverlay(availableVersion)
+    setTimeout(() => {
       window.api.updater.installUpdate()
-    }
-  }, [])
+    }, 800)
+  }, [availableVersion, showOverlay, updateState])
 
   return (
     <div className="max-w-lg">
       <div className="bg-[#F8F8F8] rounded-xl p-5 mb-6 flex items-center justify-between">
         <div>
-          <div className="text-xs text-[#999] uppercase tracking-wider mb-1">Version actuelle</div>
+          <div className="text-xs text-[#999] uppercase tracking-wider mb-1">Current version</div>
           <div className="text-xl font-semibold text-[#1f1f1f]">v{currentVersion}</div>
         </div>
         {updateState === 'up-to-date' && (
           <div className="flex items-center gap-1.5 text-green-600 text-sm font-medium">
             <CheckCircle className="w-4 h-4" />
-            À jour
+            Up to date
           </div>
         )}
       </div>
@@ -100,12 +105,12 @@ export default function UpdatesSettingsContent() {
       {(updateState === 'available' || updateState === 'downloading' || updateState === 'ready') && (
         <div className="bg-sky-50 border border-sky-200 rounded-xl p-5 mb-6">
           <div className="font-semibold text-sky-900 mb-1">
-            Mise à jour disponible{availableVersion ? ` — v${availableVersion}` : ''}
+            Update available{availableVersion ? ` — v${availableVersion}` : ''}
           </div>
           {updateState === 'downloading' && (
             <div className="mt-3">
               <div className="flex justify-between text-xs text-sky-700 mb-1">
-                <span>Téléchargement en cours...</span>
+                <span>Downloading...</span>
                 <span>{downloadProgress}%</span>
               </div>
               <div className="w-full bg-sky-200 rounded-full h-1.5">
@@ -117,14 +122,14 @@ export default function UpdatesSettingsContent() {
             </div>
           )}
           {updateState === 'ready' && (
-            <p className="text-sm text-sky-700 mt-1">Prête à installer. L'app redémarrera.</p>
+            <p className="text-sm text-sky-700 mt-1">Ready to install. The app will restart.</p>
           )}
         </div>
       )}
 
       {updateState === 'error' && errorMessage && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-5 mb-6">
-          <div className="font-semibold text-red-900 mb-1">Erreur de vérification</div>
+          <div className="font-semibold text-red-900 mb-1">Update error</div>
           <p className="text-sm text-red-700">{errorMessage}</p>
         </div>
       )}
@@ -137,21 +142,25 @@ export default function UpdatesSettingsContent() {
             className="flex items-center gap-2 cursor-pointer"
           >
             <Refresh className={`w-4 h-4 ${updateState === 'checking' ? 'animate-spin' : ''}`} />
-            {updateState === 'checking' ? 'Vérification...' : 'Vérifier les mises à jour'}
+            {updateState === 'checking' ? 'Checking...' : 'Check for updates'}
           </Button>
         ) : updateState === 'available' ? (
           <Button onClick={handleDownload} className="flex items-center gap-2 bg-sky-700 hover:bg-sky-600 cursor-pointer">
             <Download className="w-4 h-4" />
-            Télécharger la mise à jour
+            Download update
           </Button>
         ) : updateState === 'downloading' ? (
           <Button disabled className="flex items-center gap-2 opacity-60">
             <Download className="w-4 h-4 animate-bounce" />
-            Téléchargement...
+            Downloading...
           </Button>
         ) : updateState === 'ready' ? (
           <Button onClick={handleInstall} className="flex items-center gap-2 bg-green-700 hover:bg-green-600 cursor-pointer">
-            Installer et redémarrer
+            Install and restart
+          </Button>
+        ) : updateState === 'installing' ? (
+          <Button disabled className="flex items-center gap-2 opacity-60">
+            Installing...
           </Button>
         ) : null}
 
@@ -163,14 +172,14 @@ export default function UpdatesSettingsContent() {
             disabled={updateState === 'checking'}
           >
             <Refresh className="w-4 h-4" />
-            Re-vérifier
+            Re-check
           </Button>
         )}
       </div>
 
       {import.meta.env.DEV && (
         <p className="mt-4 text-xs text-[#aaa]">
-          Mode dev : ajouter <code>VITE_DEV_AUTO_UPDATE=true</code> dans .env pour activer l'updater.
+          Dev mode: add <code>VITE_DEV_AUTO_UPDATE=true</code> in .env to enable the updater.
         </p>
       )}
     </div>

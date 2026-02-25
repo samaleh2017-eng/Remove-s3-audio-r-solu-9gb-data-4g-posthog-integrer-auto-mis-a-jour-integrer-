@@ -14,6 +14,8 @@ export type ActiveWindow = {
     width: number
     height: number
   }
+  bundleId?: string | null
+  exePath?: string | null
 }
 
 export type ActiveWindowWithIcon = ActiveWindow & {

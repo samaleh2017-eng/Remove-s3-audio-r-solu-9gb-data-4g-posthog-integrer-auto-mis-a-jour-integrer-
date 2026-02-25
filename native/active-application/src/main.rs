@@ -29,6 +29,14 @@ fn output_result(active_window: ActiveWindow, with_icon: bool) {
         },
     });
 
+    if let Some(bundle_id) = get_bundle_identifier(active_window.process_id) {
+        event_json["bundleId"] = json!(bundle_id);
+    }
+
+    if let Some(exe_path) = get_executable_path(active_window.process_id) {
+        event_json["exePath"] = json!(exe_path);
+    }
+
     if with_icon && let Some(icon_data) = get_app_icon_base64(&app_name, active_window.process_id) {
         event_json["iconBase64"] = json!(icon_data);
     }
@@ -74,6 +82,38 @@ fn extract_name_from_title(title: &str) -> Option<String> {
 }
 
 #[cfg(target_os = "macos")]
+fn get_bundle_identifier(pid: u64) -> Option<String> {
+    use objc::runtime::{Class, Object};
+    use objc::{msg_send, sel, sel_impl};
+
+    unsafe {
+        let cls = Class::get("NSRunningApplication")?;
+        let app: *mut Object = msg_send![cls, runningApplicationWithProcessIdentifier: pid as i32];
+        if app.is_null() {
+            return None;
+        }
+        let bundle_id: *mut Object = msg_send![app, bundleIdentifier];
+        if bundle_id.is_null() {
+            return None;
+        }
+        let utf8: *const std::os::raw::c_char = msg_send![bundle_id, UTF8String];
+        if utf8.is_null() {
+            return None;
+        }
+        Some(
+            std::ffi::CStr::from_ptr(utf8)
+                .to_string_lossy()
+                .into_owned(),
+        )
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn get_executable_path(pid: u64) -> Option<String> {
+    get_running_app_path(pid)
+}
+
+#[cfg(target_os = "macos")]
 fn get_process_name(pid: u64) -> Option<String> {
     use objc::runtime::{Class, Object};
     use objc::{msg_send, sel, sel_impl};
@@ -101,7 +141,12 @@ fn get_process_name(pid: u64) -> Option<String> {
 }
 
 #[cfg(target_os = "windows")]
-fn get_process_name(pid: u64) -> Option<String> {
+fn get_bundle_identifier(_pid: u64) -> Option<String> {
+    None
+}
+
+#[cfg(target_os = "windows")]
+fn get_executable_path(pid: u64) -> Option<String> {
     use windows::Win32::Foundation::CloseHandle;
     use windows::Win32::System::Threading::{
         OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
@@ -121,14 +166,32 @@ fn get_process_name(pid: u64) -> Option<String> {
         let _ = CloseHandle(handle);
         result.ok()?;
         let path = String::from_utf16_lossy(&buffer[..size as usize]);
-        let filename = path.rsplit('\\').next()?;
-        let name = filename.strip_suffix(".exe").unwrap_or(filename);
-        if name.is_empty() {
-            None
-        } else {
-            Some(name.to_string())
-        }
+        if path.is_empty() { None } else { Some(path) }
     }
+}
+
+#[cfg(target_os = "windows")]
+fn get_process_name(pid: u64) -> Option<String> {
+    let path = get_executable_path(pid)?;
+    let filename = path.rsplit('\\').next()?;
+    let name = filename.strip_suffix(".exe").unwrap_or(filename);
+    if name.is_empty() {
+        None
+    } else {
+        Some(name.to_string())
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn get_bundle_identifier(_pid: u64) -> Option<String> {
+    None
+}
+
+#[cfg(target_os = "linux")]
+fn get_executable_path(pid: u64) -> Option<String> {
+    std::fs::read_link(format!("/proc/{}/exe", pid))
+        .ok()
+        .map(|p| p.to_string_lossy().into_owned())
 }
 
 #[cfg(target_os = "linux")]

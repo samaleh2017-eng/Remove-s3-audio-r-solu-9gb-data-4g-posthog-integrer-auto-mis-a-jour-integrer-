@@ -40,6 +40,7 @@ import {
   type MatchType,
 } from '../main/sqlite/appTargetRepo'
 import { fetchFavicon } from '../main/faviconFetcher'
+import { persistentContextDetector } from '../main/context/PersistentContextDetector'
 import {
   UserDetailsTable,
   UserAdditionalInfoTable,
@@ -49,7 +50,6 @@ import {
   getActiveWindowWithIcon,
 } from '../media/active-application'
 import { getBrowserUrl } from '../media/browser-url'
-import { normalizeAppTargetId } from '../utils/appTargetUtils'
 import { audioRecorderService } from '../media/audio'
 import { voiceInputService } from '../main/voiceInputService'
 import { itoSessionManager } from '../main/itoSessionManager'
@@ -217,6 +217,7 @@ export function registerIPC() {
   // Auth
   handleIPC('logout', () => {
     console.log('[DEBUG][IPC] logout called')
+    persistentContextDetector.clearCache()
     handleLogout()
   })
   handleIPC(
@@ -595,6 +596,7 @@ export function registerIPC() {
       log.error('No user ID found to delete data.')
       return false
     }
+    persistentContextDetector.clearCache()
     const { deleteCompleteUserData } = await import('../main/sqlite/db')
     return deleteCompleteUserData(userId)
   })
@@ -952,6 +954,8 @@ ipcMain.handle(
       domain?: string | null
       toneId?: string | null
       iconBase64?: string | null
+      bundleId?: string | null
+      exePath?: string | null
     },
   ) => {
     const userId = getCurrentUserId() || DEFAULT_LOCAL_USER_ID
@@ -971,7 +975,16 @@ ipcMain.handle(
       }
     }
 
-    return AppTargetTable.upsert({ ...data, userId, iconBase64 })
+    const target = await AppTargetTable.upsert({ ...data, userId, iconBase64 })
+
+    await persistentContextDetector.registerSignaturesForTarget(
+      target.id,
+      data.bundleId ?? null,
+      data.exePath ?? null,
+      data.domain ?? null,
+    )
+
+    return target
   },
 )
 
@@ -979,12 +992,14 @@ ipcMain.handle(
   'app-targets:update-tone',
   async (_event, id: string, toneId: string | null) => {
     const userId = getCurrentUserId() || DEFAULT_LOCAL_USER_ID
-    return AppTargetTable.updateTone(id, userId, toneId)
+    await AppTargetTable.updateTone(id, userId, toneId)
+    persistentContextDetector.invalidateTarget(id)
   },
 )
 
 ipcMain.handle('app-targets:delete', async (_event, id: string) => {
   const userId = getCurrentUserId() || DEFAULT_LOCAL_USER_ID
+  await persistentContextDetector.removeSignaturesForTarget(id)
   return AppTargetTable.delete(id, userId)
 })
 
@@ -1045,24 +1060,19 @@ ipcMain.handle('app-targets:detect-current', async () => {
     suggestedMatchType: browserInfo.domain ? 'domain' : 'app',
     iconBase64: window.iconBase64 || null,
     domainIconBase64,
+    bundleId: window.bundleId || null,
+    exePath: window.exePath || null,
   }
 })
 
 ipcMain.handle('app-targets:get-current', async () => {
-  const userId = getCurrentUserId() || DEFAULT_LOCAL_USER_ID
-
   const window = await getActiveWindow()
-  if (!window) return null
-
   const browserInfo = await getBrowserUrl(window)
-
-  if (browserInfo.domain) {
-    const domainTarget = await AppTargetTable.findByDomain(browserInfo.domain, userId)
-    if (domainTarget) return domainTarget
-  }
-
-  const id = normalizeAppTargetId(window.appName)
-  return AppTargetTable.findById(id, userId)
+  const resolved = await persistentContextDetector.resolveForWindow(
+    window,
+    browserInfo.domain,
+  )
+  return resolved.target
 })
 
 ipcMain.handle('app-targets:list-installed-apps', async () => {

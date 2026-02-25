@@ -7,11 +7,7 @@ import {
 } from '../types/ipc'
 import { getActiveWindow } from '../media/active-application'
 import { getBrowserUrl } from '../media/browser-url'
-import { normalizeAppTargetId } from '../utils/appTargetUtils'
-import { AppTargetTable } from './sqlite/appTargetRepo'
-import { getCurrentUserId } from './store'
-
-const DEFAULT_LOCAL_USER_ID = 'local-user'
+import { persistentContextDetector } from './context/PersistentContextDetector'
 
 export class RecordingStateNotifier {
   private generation = 0
@@ -59,22 +55,15 @@ export class RecordingStateNotifier {
   }
 
   private async resolveAppTarget() {
-    const userId = getCurrentUserId() || DEFAULT_LOCAL_USER_ID
     const window = await getActiveWindow()
     if (!window) return null
 
     const browserInfo = await getBrowserUrl(window)
-
-    if (browserInfo.domain) {
-      const domainTarget = await AppTargetTable.findByDomain(
-        browserInfo.domain,
-        userId,
-      )
-      if (domainTarget) return domainTarget
-    }
-
-    const id = normalizeAppTargetId(window.appName)
-    return AppTargetTable.findById(id, userId)
+    const resolved = await persistentContextDetector.resolveForWindow(
+      window,
+      browserInfo.domain,
+    )
+    return resolved.target
   }
 
   private sendToWindows(

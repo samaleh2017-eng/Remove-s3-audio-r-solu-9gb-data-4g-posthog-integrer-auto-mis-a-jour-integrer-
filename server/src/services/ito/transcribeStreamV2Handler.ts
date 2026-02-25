@@ -21,6 +21,7 @@ import {
 } from './helpers.js'
 import type { ItoContext } from './types.js'
 import { applyReplacements as sharedApplyReplacements, filterLeakedContext as sharedFilterLeakedContext } from './llmUtils.js'
+import { guardLanguage, detectTextLanguage } from './languageGuard.js'
 import { isAbortError, createAbortError } from '../../utils/abortUtils.js'
 import {
   concatenateAudioChunks,
@@ -434,16 +435,19 @@ export class TranscribeStreamV2Handler {
       : basePrompt
 
     const userPrompt = createUserPromptWithContext(transcript, windowContext)
+    const finalUserPrompt = `[LANGUAGE RULE: Your output MUST be in the SAME language as the user's dictated text below. Do NOT translate it. Do NOT switch to the language of the context metadata or system prompt. Preserve the original language of the spoken text exactly.]\n${userPrompt}`
     const llmProvider = getLlmProvider(advancedSettings.llmProvider)
 
+    const detectedInputLang = detectTextLanguage(transcript)
+
     console.log(
-      `[TranscribeStreamV2] LLM call - system prompt source: ${hasTonePrompt ? 'tonePrompt' : 'basePrompt'}, has user details: ${!!windowContext.userDetailsContext}`,
+      `[TranscribeStreamV2] LLM call - system prompt source: ${hasTonePrompt ? 'tonePrompt' : 'basePrompt'}, has user details: ${!!windowContext.userDetailsContext}, detected input lang: ${detectedInputLang}`,
     )
 
     const adjustedTranscript = await serverTimingCollector.timeAsync(
       ServerTimingEventName.LLM_ADJUSTMENT,
       () =>
-        llmProvider.adjustTranscript(userPrompt, {
+        llmProvider.adjustTranscript(finalUserPrompt, {
           temperature: advancedSettings.llmTemperature,
           model: advancedSettings.llmModel,
           prompt: systemPrompt,
@@ -460,6 +464,19 @@ export class TranscribeStreamV2Handler {
       console.log(
         `🔒 [${new Date().toISOString()}] Filtered leaked context from LLM output`,
       )
+    }
+
+    if (detectedInputLang) {
+      return guardLanguage(filteredTranscript, {
+        expectedLanguage: detectedInputLang,
+        llmProvider,
+        llmOptions: {
+          temperature: advancedSettings.llmTemperature,
+          model: advancedSettings.llmModel,
+          prompt: systemPrompt,
+        },
+        userPrompt: finalUserPrompt,
+      })
     }
 
     return filteredTranscript

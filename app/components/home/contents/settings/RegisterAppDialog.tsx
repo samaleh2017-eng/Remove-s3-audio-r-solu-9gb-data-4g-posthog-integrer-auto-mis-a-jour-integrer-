@@ -43,7 +43,14 @@ export function RegisterAppDialog({ open, onOpenChange, context }: Props) {
         selectedType === 'domain'
           ? context.domainIconBase64
           : context.iconBase64
-      await registerApp(selectedType, context.appName, domain, icon)
+      await registerApp(
+        selectedType,
+        context.appName,
+        domain,
+        icon,
+        context.bundleId,
+        context.exePath,
+      )
       onOpenChange(false)
     } catch (error) {
       console.error('Failed to register:', error)

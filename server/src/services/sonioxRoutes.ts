@@ -6,6 +6,7 @@ import { ItoMode } from '../generated/ito_pb.js'
 import { getPromptForMode, createUserPromptWithContext } from './ito/helpers.js'
 import { getTranslationBasePrompt, getTranslationTonePrompt, getLanguageNameFromCode } from './ito/translationHelpers.js'
 import { applyReplacements, filterLeakedContext } from './ito/llmUtils.js'
+import { guardLanguage, detectTextLanguage } from './ito/languageGuard.js'
 import type { ItoContext } from './ito/types.js'
 import type { SupabaseJwtPayload } from '../auth/supabaseJwt.js'
 
@@ -152,6 +153,23 @@ export const registerSonioxRoutes = async (
       const replacements = body.replacements || []
       if (replacements.length > 0) {
         adjustedTranscript = applyReplacements(adjustedTranscript, replacements)
+      }
+
+      const expectedLang = mode === ItoMode.TRANSLATE
+        ? (body.targetLanguage || 'en')
+        : detectTextLanguage(trimmedTranscript)
+
+      if (expectedLang) {
+        adjustedTranscript = await guardLanguage(adjustedTranscript, {
+          expectedLanguage: expectedLang,
+          llmProvider,
+          llmOptions: {
+            temperature: advancedSettings.llmTemperature,
+            model: advancedSettings.llmModel,
+            prompt: systemPrompt,
+          },
+          userPrompt: finalUserPrompt,
+        })
       }
 
       reply.send({

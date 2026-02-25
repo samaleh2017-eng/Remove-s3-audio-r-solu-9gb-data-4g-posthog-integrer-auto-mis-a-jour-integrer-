@@ -22,13 +22,11 @@ export function getUpdateStatus(): UpdateStatus {
 }
 
 export function initializeAutoUpdater() {
-  // Initialize update status tracking
   updateStatus = {
     updateAvailable: false,
     updateDownloaded: false,
   }
 
-  // Allow auto-updater in development mode if VITE_DEV_AUTO_UPDATE is set
   const enableDevUpdater = import.meta.env.VITE_DEV_AUTO_UPDATE === 'true'
 
   if (app.isPackaged || enableDevUpdater) {
@@ -39,7 +37,6 @@ export function initializeAutoUpdater() {
           : 'Development auto-updater enabled, initializing...',
       )
 
-      // Force dev updates if in development mode
       if (!app.isPackaged) {
         autoUpdater.forceDevUpdateConfig = true
       }
@@ -60,7 +57,6 @@ export function initializeAutoUpdater() {
       setupAutoUpdaterEvents()
       autoUpdater.checkForUpdates()
 
-      // Poll for updates every 10 minutes
       updateCheckTimer = setInterval(
         () => {
           autoUpdater.checkForUpdates()
@@ -137,28 +133,30 @@ export function downloadUpdate() {
 export async function installUpdateNow() {
   if (installing) return
   installing = true
-  console.log('[Updater] Preparing to install…')
+  console.log('[Updater] Preparing to install update...')
 
   try {
-    // Try to gracefully shut down processes
     teardown()
     await new Promise(resolve => setTimeout(resolve, 1_500))
 
     console.log('[Updater] Forcibly kill all straggler processes')
-    // Force-kill stragglers + crashpad/helpers
     await hardKillAll()
 
-    console.log('[Updater] calling autoUpdater quit and install')
-    // Fire the installer (UI visible for debugging recommended)
-    autoUpdater.quitAndInstall(false /* isSilent */, true /* forceRunAfter */)
+    console.log('[Updater] Calling autoUpdater.quitAndInstall (silent)')
+    autoUpdater.quitAndInstall(true, true)
+
+    setTimeout(() => {
+      console.log('[Updater] Force exit fallback')
+      app.exit(0)
+    }, 3_000)
   } catch (e) {
     log.error('[Updater] installUpdateNow error', e)
-    // Try again, but don’t loop forever
     try {
       await hardKillAll()
-      autoUpdater.quitAndInstall(false, true)
+      autoUpdater.quitAndInstall(true, true)
+      setTimeout(() => app.exit(0), 3_000)
     } catch {
-      /* empty */
+      app.exit(0)
     }
   }
 }

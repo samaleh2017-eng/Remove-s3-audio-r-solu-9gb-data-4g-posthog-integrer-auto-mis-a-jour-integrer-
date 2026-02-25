@@ -4,12 +4,7 @@ import {
   UserDetailsTable,
   UserAdditionalInfoTable,
 } from '../sqlite/userDetailsRepo'
-import {
-  AppTargetTable,
-  ToneTable,
-  type Tone,
-  type AppTarget,
-} from '../sqlite/appTargetRepo'
+import { type Tone } from '../sqlite/appTargetRepo'
 import { getCurrentUserId, getAdvancedSettings } from '../store'
 import { getActiveWindow } from '../../media/active-application'
 import {
@@ -18,11 +13,8 @@ import {
 } from '../../media/selected-text-reader'
 import { getBrowserUrl } from '../../media/browser-url'
 import { canGetContextFromCurrentApp } from '../../utils/applicationDetection'
-import {
-  normalizeAppTargetId,
-  DEFAULT_TONE_ID,
-} from '../../utils/appTargetUtils'
 import log from 'electron-log'
+import { persistentContextDetector } from './PersistentContextDetector'
 
 const DEFAULT_LOCAL_USER_ID = 'local-user'
 import { timingCollector, TimingEventName } from '../timing/TimingCollector'
@@ -70,17 +62,24 @@ export class ContextGrabber {
     // Get user details
     const userDetails = await this.getUserDetails()
 
-    // Get active window context
-    const windowContext = await timingCollector.timeAsync(
+    // Single native binary call for active window
+    const activeWindow = await timingCollector.timeAsync(
       TimingEventName.WINDOW_CONTEXT_GATHER,
-      async () => await this.getWindowContext(),
+      async () => {
+        try {
+          return await getActiveWindow()
+        } catch (error) {
+          log.error('[ContextGrabber] Error getting active window:', error)
+          return null
+        }
+      },
     )
 
-    // Get browser URL if in a browser
+    // Single browser URL detection — reuses activeWindow
     const { url: browserUrl, domain: browserDomain } =
       await timingCollector.timeAsync(
         TimingEventName.BROWSER_URL_GATHER,
-        async () => await getBrowserUrl(windowContext),
+        async () => await getBrowserUrl(activeWindow),
       )
 
     // Get selected text if in EDIT mode
@@ -89,18 +88,25 @@ export class ContextGrabber {
     // Get advanced settings
     const advancedSettings = getAdvancedSettings()
 
-    // Get tone for current app (check domain first, then app)
-    const tone = await this.getToneForCurrentApp(
-      windowContext?.appName,
-      browserDomain,
+    // Resolve tone via hybrid detection — reuses activeWindow + browserDomain, 0 extra binary calls
+    const resolved = await timingCollector.timeAsync(
+      TimingEventName.WINDOW_CONTEXT_GATHER,
+      async () =>
+        await persistentContextDetector.resolveForWindow(
+          activeWindow,
+          browserDomain,
+        ),
     )
+    const tone = resolved.tone
 
-    console.log('[ContextGrabber] App name:', windowContext?.appName)
+    console.log('[ContextGrabber] App name:', activeWindow?.appName)
     console.log(
       '[ContextGrabber] Tone found:',
       tone?.name,
-      '| Template:',
-      tone?.promptTemplate?.substring(0, 50),
+      '| via signature:',
+      resolved.signature,
+      '| type:',
+      resolved.signatureType,
     )
     console.log('[ContextGrabber] Context gathered successfully')
 
@@ -108,8 +114,8 @@ export class ContextGrabber {
       vocabularyWords,
       replacements,
       userDetails,
-      windowTitle: windowContext?.title || '',
-      appName: windowContext?.appName || '',
+      windowTitle: activeWindow?.title || '',
+      appName: activeWindow?.appName || '',
       contextText,
       browserUrl,
       browserDomain,
@@ -176,87 +182,6 @@ export class ContextGrabber {
     } catch (error) {
       log.error('[ContextGrabber] Error getting vocabulary:', error)
       return { vocabularyWords: [], replacements: [] }
-    }
-  }
-
-  private async getWindowContext(): Promise<{
-    title: string
-    appName: string
-  } | null> {
-    try {
-      const windowContext = await getActiveWindow()
-      if (!windowContext) return null
-      return {
-        title: windowContext.title || '',
-        appName: windowContext.appName || '',
-      }
-    } catch (error) {
-      log.error('[ContextGrabber] Error getting window context:', error)
-      return null
-    }
-  }
-
-  private async getToneForCurrentApp(
-    appName?: string,
-    browserDomain?: string | null,
-  ): Promise<Tone | null> {
-    try {
-      const userId = getCurrentUserId() || DEFAULT_LOCAL_USER_ID
-      if (!appName) return null
-
-      let appTarget: AppTarget | null = null
-
-      if (browserDomain) {
-        appTarget = await AppTargetTable.findByDomain(browserDomain, userId)
-      }
-
-      if (!appTarget) {
-        const appId = normalizeAppTargetId(appName)
-        appTarget = await AppTargetTable.findById(appId, userId)
-      }
-
-      if (
-        appTarget &&
-        appTarget.matchType === 'domain' &&
-        appTarget.domain &&
-        !appTarget.iconBase64
-      ) {
-        this.backfillFavicon(appTarget.id, appTarget.domain, userId).catch(
-          () => {},
-        )
-      }
-
-      const toneId = appTarget?.toneId || DEFAULT_TONE_ID
-      const tone = await ToneTable.findById(toneId)
-
-      return tone
-    } catch (error) {
-      log.error('[ContextGrabber] Error getting tone:', error)
-      return null
-    }
-  }
-
-  private async backfillFavicon(
-    appTargetId: string,
-    domain: string,
-    userId: string,
-  ): Promise<void> {
-    try {
-      const { fetchFavicon } = await import('./../../main/faviconFetcher')
-      const iconBase64 = await fetchFavicon(domain)
-      if (iconBase64) {
-
-        await AppTargetTable.upsert({
-          id: appTargetId,
-          userId,
-          name: domain,
-          matchType: 'domain' as const,
-          domain,
-          iconBase64,
-        })
-      }
-    } catch (error) {
-      console.warn('[ContextGrabber] Favicon backfill failed:', error)
     }
   }
 

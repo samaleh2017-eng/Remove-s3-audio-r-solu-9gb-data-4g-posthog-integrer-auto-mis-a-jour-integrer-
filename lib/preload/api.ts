@@ -175,6 +175,8 @@ const api = {
       domain?: string | null
       toneId?: string | null
       iconBase64?: string | null
+      bundleId?: string | null
+      exePath?: string | null
     }) => ipcRenderer.invoke('app-targets:upsert', data),
     updateTone: (id: string, toneId: string | null) =>
       ipcRenderer.invoke('app-targets:update-tone', id, toneId),
