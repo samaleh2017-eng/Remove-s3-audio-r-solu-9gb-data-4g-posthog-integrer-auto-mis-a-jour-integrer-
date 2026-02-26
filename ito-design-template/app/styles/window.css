@@ -1,0 +1,128 @@
+:root {
+  --window-titlebar-height: 48px;
+  --window-titlebar-font-size: 13px;
+  --window-titlebar-font-weight: 500;
+  --window-title-margin: 42px;
+  --window-scrollbar-width: 12px;
+  --window-mac-titlebar-controls-margin: 80px;
+  --window-background-transition-duration: 0.3s;
+
+  --window-c-background: var(--background, #ffffff);
+  --window-c-titlebar-background: var(--background, #ffffff);
+  --window-c-titlebar-border: transparent;
+  --window-c-text: var(--foreground, #1f1f1f);
+  --window-c-hover: #f5f5f5;
+  --window-c-control-hover: #0000001a;
+  --window-c-control-close-hover: #ff453b;
+  --window-c-control-close-hover-text: #fff;
+  --window-c-popup-background: #ffffff;
+  --window-c-popup-border: rgba(31, 31, 31, 0.08);
+  --window-c-popup-shadow: rgba(31, 31, 31, 0.06);
+  --window-c-separator: #80808033;
+  --window-c-scrollbar-track: #e0e0e0;
+  --window-c-scrollbar-thumb: #b0b0b0;
+  --window-c-scrollbar-thumb-hover: #888888cf;
+}
+
+:root.dark {
+  --window-c-background: var(--background, #0a0a0a);
+  --window-c-titlebar-background: var(--background, #0a0a0a);
+  --window-c-text: var(--foreground, #fafafa);
+  --window-c-hover: #1a1a1a;
+  --window-c-control-hover: #0000003d;
+  --window-c-control-close-hover: #c42b1c;
+  --window-c-popup-background: #141414;
+  --window-c-popup-border: rgba(250, 250, 250, 0.08);
+  --window-c-popup-shadow: rgba(0, 0, 0, 0.3);
+  --window-c-scrollbar-track: #1e1e1ec6;
+  --window-c-scrollbar-thumb: #88888863;
+  --window-c-scrollbar-thumb-hover: #555;
+}
+
+/*
+ * LAYOUT UNIFIÉ :
+ * window-frame = fond #ffffff unique
+ * Le titlebar, le sidebar et l'espace autour de la content card
+ * partagent TOUS ce même fond blanc.
+ * Seule la content card a un fond #fafafa distinct.
+ */
+.window-frame {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  user-select: none;
+  background-color: var(--window-c-background);
+  transition: background-color var(--window-background-transition-duration) ease;
+}
+
+.window-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+}
+
+.window-titlebar {
+  display: flex;
+  position: relative;
+  height: var(--window-titlebar-height);
+  align-items: center;
+  justify-content: space-between;
+  -webkit-app-region: drag;
+  background-color: var(--window-c-titlebar-background);
+  color: var(--window-c-text);
+  transition: background-color var(--window-background-transition-duration) ease;
+  border-bottom: 1px solid var(--window-c-titlebar-border);
+}
+
+.titlebar-action-btn {
+  -webkit-app-region: no-drag;
+}
+
+.window-titlebar-controls {
+  display: flex;
+  position: relative;
+  -webkit-app-region: no-drag;
+  z-index: 20;
+}
+
+.titlebar-controlButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: var(--window-titlebar-height);
+  cursor: pointer;
+  background-color: transparent;
+}
+
+.titlebar-controlButton:hover {
+  background-color: var(--window-c-control-hover);
+}
+
+.titlebar-controlButton[aria-label='close']:hover {
+  background-color: var(--window-c-control-close-hover);
+  color: var(--window-c-control-close-hover-text, inherit);
+}
+
+.window-content::-webkit-scrollbar {
+  width: var(--window-scrollbar-width);
+}
+
+.window-content::-webkit-scrollbar-track {
+  background-color: var(--window-c-scrollbar-track);
+}
+
+.window-content::-webkit-scrollbar-thumb {
+  background-color: var(--window-c-scrollbar-thumb);
+  border-radius: 4px;
+  border: 3px solid var(--window-c-scrollbar-track);
+}
+
+.window-content::-webkit-scrollbar-thumb:hover {
+  background-color: var(--window-c-scrollbar-thumb-hover);
+}
+
+.platform-darwin .window-titlebar-title {
+  margin-left: var(--window-mac-titlebar-controls-margin);
+}
