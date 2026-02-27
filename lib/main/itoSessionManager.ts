@@ -39,6 +39,7 @@ export class ItoSessionManager {
   private sonioxContext: ContextData | null = null
   private sonioxSessionGeneration = 0
   private sonioxSessionActive = false
+  private contextGatherPromise: Promise<void> | null = null
 
   public async startSession(mode: ItoMode) {
     console.log('[itoSessionManager] Starting session with mode:', mode)
@@ -58,7 +59,11 @@ export class ItoSessionManager {
     const { llm } = getAdvancedSettings()
     const isSoniox = llm?.asrProvider === 'soniox'
 
-    if (mode === ItoMode.TRANSLATE || isSoniox) {
+    if (
+      mode === ItoMode.TRANSLATE ||
+      mode === ItoMode.CONTEXT_AWARENESS ||
+      isSoniox
+    ) {
       await this.startSonioxSession(mode)
     } else {
       await this.startGrpcSession(mode)
@@ -175,7 +180,8 @@ export class ItoSessionManager {
       this.sonioxService = null
     }
 
-    this.gatherAndCacheContext(mode).catch(error => {
+    this.contextGatherPromise = this.gatherAndCacheContext(mode)
+    this.contextGatherPromise.catch(error => {
       log.error(
         '[itoSessionManager] Failed to gather context for Soniox:',
         error,
@@ -192,7 +198,11 @@ export class ItoSessionManager {
     this.sonioxContext = context
 
     if (mode === ItoMode.CONTEXT_AWARENESS && context.contextSource) {
-      recordingStateNotifier.notifyRecordingStarted(mode, context.contextSource)
+      recordingStateNotifier.notifyRecordingStarted(
+        mode,
+        context.contextSource,
+        context.screenThumbnailBase64,
+      )
     }
 
     const { grammarServiceEnabled } = getAdvancedSettings()
@@ -221,6 +231,7 @@ export class ItoSessionManager {
       recordingStateNotifier.notifyRecordingStarted(
         itoStreamController.getCurrentMode(),
         context.contextSource,
+        context.screenThumbnailBase64,
       )
     }
 
@@ -400,6 +411,15 @@ export class ItoSessionManager {
       return
     }
 
+    if (this.contextGatherPromise) {
+      try {
+        await this.contextGatherPromise
+      } catch {
+        // already logged at call site
+      }
+      this.contextGatherPromise = null
+    }
+
     const mode = this.currentMode
 
     try {
@@ -549,6 +569,7 @@ export class ItoSessionManager {
     interactionManager.clearCurrentInteraction()
     this.isSonioxMode = false
     this.sonioxContext = null
+    this.contextGatherPromise = null
   }
 
   private async handleTranscriptionResponse(result: {

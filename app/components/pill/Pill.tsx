@@ -112,6 +112,7 @@ const Pill = () => {
   const [contextSource, setContextSource] = useState<
     'screen' | 'selection' | null
   >(null)
+  const [screenThumbnail, setScreenThumbnail] = useState<string | null>(null)
   const [currentMode, setCurrentMode] = useState<ItoMode | undefined>(undefined)
   const isRecordingRef = useRef(false)
   const hasBeenShownRef = useRef(false)
@@ -150,6 +151,10 @@ const Pill = () => {
 
         if (state.contextSource) {
           setContextSource(state.contextSource)
+        }
+
+        if (state.screenThumbnailBase64) {
+          setScreenThumbnail(state.screenThumbnailBase64)
         }
 
         if (state.mode !== undefined) {
@@ -255,6 +260,7 @@ const Pill = () => {
     if (!isRecording && !isManualRecording && !isProcessing) {
       setAppTarget(null)
       setContextSource(null)
+      setScreenThumbnail(null)
       setCurrentMode(undefined)
     }
   }, [isRecording, isManualRecording, isProcessing])
@@ -482,19 +488,33 @@ const Pill = () => {
                     {appTarget?.name || 'Ito'}
                   </span>
                   {contextSource && (
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 500,
-                        color: 'rgba(255,255,255,0.6)',
-                        marginLeft: 6,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {contextSource === 'screen'
-                        ? '📷 Screen analyzed'
-                        : '📝 Selection'}
-                    </span>
+                    <>
+                      {contextSource === 'screen' && screenThumbnail ? (
+                        <img
+                          src={`data:image/png;base64,${screenThumbnail}`}
+                          style={{
+                            width: 48,
+                            height: 28,
+                            borderRadius: 3,
+                            objectFit: 'cover',
+                            marginLeft: 6,
+                            border: '1px solid rgba(255,255,255,0.2)',
+                          }}
+                        />
+                      ) : (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 500,
+                            color: 'rgba(255,255,255,0.6)',
+                            marginLeft: 6,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {contextSource === 'selection' ? '📝 Selection' : ''}
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center' }}>

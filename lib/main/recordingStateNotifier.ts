@@ -66,6 +66,7 @@ export class RecordingStateNotifier {
   public notifyRecordingStarted(
     mode: ItoMode,
     contextSource?: 'screen' | 'selection' | null,
+    screenThumbnailBase64?: string | null,
   ) {
     const gen = ++this.generation
 
@@ -78,6 +79,7 @@ export class RecordingStateNotifier {
           appTargetName: result?.name ?? undefined,
           appTargetIconBase64: result?.iconBase64 ?? undefined,
           contextSource: contextSource ?? undefined,
+          screenThumbnailBase64: screenThumbnailBase64 ?? undefined,
         })
       })
       .catch(() => {
@@ -86,6 +88,7 @@ export class RecordingStateNotifier {
           isRecording: true,
           mode,
           contextSource: contextSource ?? undefined,
+          screenThumbnailBase64: screenThumbnailBase64 ?? undefined,
         })
       })
   }

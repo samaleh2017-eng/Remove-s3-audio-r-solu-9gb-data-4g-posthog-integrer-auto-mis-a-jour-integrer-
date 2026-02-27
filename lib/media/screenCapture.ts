@@ -4,6 +4,7 @@ export type CaptureMode = 'fullscreen' | 'active_window'
 
 export interface ScreenCaptureResult {
   base64: string
+  thumbnailBase64: string
   width: number
   height: number
 }
@@ -42,8 +43,12 @@ export async function captureScreen(
       `[screenCapture] Captured ${mode}: ${resized.getSize().width}x${resized.getSize().height}, ${Math.round(pngBuffer.length / 1024)}KB`,
     )
 
+    const thumbImg = resized.resize({ width: 120 })
+    const thumbnailBase64 = thumbImg.toPNG().toString('base64')
+
     return {
       base64,
+      thumbnailBase64,
       width: resized.getSize().width,
       height: resized.getSize().height,
     }

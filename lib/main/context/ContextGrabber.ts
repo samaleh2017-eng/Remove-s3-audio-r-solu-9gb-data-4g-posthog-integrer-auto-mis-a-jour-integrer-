@@ -45,6 +45,7 @@ export interface ContextData {
   advancedSettings: ReturnType<typeof getAdvancedSettings>
   tone: Tone | null
   screenCaptureBase64: string | null
+  screenThumbnailBase64: string | null
   contextSource: 'screen' | 'selection' | null
 }
 
@@ -88,6 +89,7 @@ export class ContextGrabber {
 
     let contextText = ''
     let screenCaptureBase64: string | null = null
+    let screenThumbnailBase64: string | null = null
     let contextSource: 'screen' | 'selection' | null = null
 
     if (mode === ItoMode.CONTEXT_AWARENESS) {
@@ -104,6 +106,7 @@ export class ContextGrabber {
         const capture = await captureScreen(captureMode)
         if (capture) {
           screenCaptureBase64 = capture.base64
+          screenThumbnailBase64 = capture.thumbnailBase64
           contextSource = 'screen'
           console.log(
             `[ContextGrabber] CONTEXT_AWARENESS captured ${captureMode}: ${capture.width}x${capture.height}`,
@@ -151,6 +154,7 @@ export class ContextGrabber {
       advancedSettings,
       tone,
       screenCaptureBase64,
+      screenThumbnailBase64,
       contextSource,
     }
   }

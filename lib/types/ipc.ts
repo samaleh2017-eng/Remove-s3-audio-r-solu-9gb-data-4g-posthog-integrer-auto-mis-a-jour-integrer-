@@ -18,6 +18,7 @@ export interface RecordingStatePayload {
   appTargetName?: string | null
   appTargetIconBase64?: string | null
   contextSource?: 'screen' | 'selection' | null
+  screenThumbnailBase64?: string | null
 }
 
 export interface ProcessingStatePayload {
