@@ -64,7 +64,7 @@ export default function MyDetailsSettingsContent() {
   }
 
   return (
-    <div className="h-full overflow-y-auto max-h-[calc(100vh-200px)]">
+    <div>
       <div className="space-y-8 pb-8">
         {/* Section 1: Personal Information */}
         <div className="space-y-4">

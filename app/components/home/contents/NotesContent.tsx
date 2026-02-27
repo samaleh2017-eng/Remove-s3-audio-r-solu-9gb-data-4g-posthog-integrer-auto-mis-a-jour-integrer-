@@ -322,11 +322,6 @@ export default function NotesContent() {
     <div
       ref={containerRef}
       className="w-full h-full flex flex-col px-12 overflow-y-auto relative"
-      style={{
-        height: '640px',
-        msOverflowStyle: 'none' /* Internet Explorer 10+ */,
-        scrollbarWidth: 'none' /* Firefox */,
-      }}
     >
       {/* Header */}
       {showSearch ? (

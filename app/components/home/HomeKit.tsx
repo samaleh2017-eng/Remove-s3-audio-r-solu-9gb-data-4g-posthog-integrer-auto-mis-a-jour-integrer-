@@ -286,7 +286,7 @@ export default function HomeKit() {
 
       {/* Main Content - White card with "page in page" effect */}
       <div className="flex-1 bg-[#F3F2F1] rounded-[var(--radius-lg)] my-2 mr-2 shadow-[var(--shadow-soft)] overflow-hidden flex flex-col border border-[var(--border)]">
-        <div className="flex-1 overflow-y-auto pt-10">{renderContent()}</div>
+        <div className="flex-1 overflow-y-auto pt-10 pb-10">{renderContent()}</div>
       </div>
 
       <Dialog

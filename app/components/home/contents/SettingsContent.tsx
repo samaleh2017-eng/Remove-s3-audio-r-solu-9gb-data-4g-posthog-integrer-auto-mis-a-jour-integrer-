@@ -77,7 +77,7 @@ export default function SettingsContent() {
 
   return (
     <div className="flex h-full">
-      <div className="w-[260px] flex-shrink-0 flex flex-col justify-between py-6 px-5 border-r border-[#E8E8E8] bg-[#E4E1DE]">
+      <div className="w-[260px] flex-shrink-0 flex flex-col justify-between py-6 px-5 border-r border-[#E8E8E8] bg-[#E4E1DE] overflow-y-auto">
         <div>
           <div className="text-xs font-semibold tracking-[1.5px] text-[#999] uppercase mb-3 px-3">
             Settings
@@ -126,7 +126,7 @@ export default function SettingsContent() {
         <h1 className="font-sans text-2xl font-semibold text-[#1f1f1f] mb-6">
           {pageTitles[settingsPage] ?? 'General'}
         </h1>
-        <div>{renderSettingsContent()}</div>
+        <div className="pb-4">{renderSettingsContent()}</div>
       </div>
     </div>
   )

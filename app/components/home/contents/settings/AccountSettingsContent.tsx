@@ -65,7 +65,7 @@ export default function AccountSettingsContent() {
   }
 
   return (
-    <div className="h-full justify-between">
+    <div className="justify-between">
       <div className="rounded-xl bg-white">
         <div className="flex items-center justify-between py-4 px-5 border-b border-[#EBEBEB]">
           <label className="text-sm font-medium text-[#1f1f1f]">Name</label>

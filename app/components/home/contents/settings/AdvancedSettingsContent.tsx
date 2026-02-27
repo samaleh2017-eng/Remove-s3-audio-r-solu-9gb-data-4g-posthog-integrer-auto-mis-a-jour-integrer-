@@ -392,7 +392,7 @@ export default function AdvancedSettingsContent() {
   ])
 
   return (
-    <div className="max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-warm-500 scrollbar-track-transparent">
+    <div>
       {/* LLM Settings Section */}
       <div className="space-y-6">
         <div>

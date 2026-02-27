@@ -85,7 +85,7 @@ export default function AppStylingContent() {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto px-6">
+    <div className="w-full max-w-2xl mx-auto px-6 pb-8">
       <div className="space-y-8">
         <div>
           <h1 className="text-[30px] font-semibold tracking-tight font-sans text-foreground">

@@ -303,11 +303,7 @@ export default function DictionaryContent() {
   return (
     <div
       ref={containerRef}
-      className="w-full px-12 max-h-160 overflow-y-auto relative"
-      style={{
-        msOverflowStyle: 'none',
-        scrollbarWidth: 'none',
-      }}
+      className="w-full h-full px-12 overflow-y-auto relative"
     >
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-[30px] font-semibold tracking-tight font-sans">

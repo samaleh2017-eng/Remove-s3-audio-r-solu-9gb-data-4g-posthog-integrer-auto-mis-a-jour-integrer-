@@ -515,7 +515,7 @@ export default function HomeContent({
       </div>
 
       {/* Scrollable Recent Activity Section */}
-      <div className="flex-1 px-12 max-w-4xl mx-auto w-full overflow-y-auto scrollbar-hide">
+      <div className="flex-1 px-12 max-w-4xl mx-auto w-full overflow-y-auto">
         {loading ? (
           <div className="bg-white dark:bg-[var(--card)] rounded-[var(--radius-lg)] border border-[var(--border)] p-8 text-center text-[var(--color-subtext)]">
             Loading recent activity...
