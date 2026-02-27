@@ -183,9 +183,9 @@ const Pill = () => {
           isManualRecordingRef.current = false
           volumeHistoryRef.current = []
           setVolumeHistory([])
-          setAppTarget(null)
-          setContextSource(null)
-          setCurrentMode(undefined)
+          // appTarget, contextSource, currentMode are cleared by the useEffect below
+          // when ALL states (isRecording, isManualRecording, isProcessing) are false.
+          // This ensures the icon persists during the processing phase.
         }
       },
     )
@@ -254,6 +254,8 @@ const Pill = () => {
   useEffect(() => {
     if (!isRecording && !isManualRecording && !isProcessing) {
       setAppTarget(null)
+      setContextSource(null)
+      setCurrentMode(undefined)
     }
   }, [isRecording, isManualRecording, isProcessing])
 
