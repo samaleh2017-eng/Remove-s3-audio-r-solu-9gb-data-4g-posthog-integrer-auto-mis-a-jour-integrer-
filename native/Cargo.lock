@@ -31,6 +31,7 @@ version = "0.1.0"
 dependencies = [
  "active-win-pos-rs 0.9.1",
  "base64",
+ "image",
  "objc",
  "serde",
  "serde_json",

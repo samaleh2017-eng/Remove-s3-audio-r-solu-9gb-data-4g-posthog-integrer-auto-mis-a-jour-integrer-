@@ -302,8 +302,155 @@ fn get_app_icon_base64(app_name: &str, pid: u64) -> Option<String> {
 }
 
 #[cfg(target_os = "windows")]
-fn get_app_icon_base64(_app_name: &str, _pid: u64) -> Option<String> {
-    None
+fn get_app_icon_base64(_app_name: &str, pid: u64) -> Option<String> {
+    use windows::Win32::UI::WindowsAndMessaging::{DestroyIcon, HICON};
+    use std::io::Cursor;
+    use image::RgbaImage;
+
+    unsafe {
+        let exe_path = get_executable_path(pid)?;
+        let wide_path: Vec<u16> = exe_path.encode_utf16().chain(std::iter::once(0)).collect();
+
+        let hicon: HICON = get_icon_shgetfileinfo(&wide_path)
+            .or_else(|| get_icon_extracticonex(&wide_path))?;
+
+        let result = extract_icon_pixels(hicon, 32);
+        let _ = DestroyIcon(hicon);
+        let (pixels, size) = result?;
+
+        let mut rgba_pixels = pixels;
+        for chunk in rgba_pixels.chunks_exact_mut(4) {
+            chunk.swap(0, 2);
+        }
+
+        let img = RgbaImage::from_raw(size as u32, size as u32, rgba_pixels)?;
+        let mut png_bytes = Cursor::new(Vec::new());
+        img.write_to(&mut png_bytes, image::ImageFormat::Png).ok()?;
+
+        use base64::Engine;
+        Some(base64::engine::general_purpose::STANDARD.encode(png_bytes.into_inner()))
+    }
+}
+
+#[cfg(target_os = "windows")]
+unsafe fn get_icon_shgetfileinfo(
+    wide_path: &[u16],
+) -> Option<windows::Win32::UI::WindowsAndMessaging::HICON> {
+    use windows::Win32::UI::Shell::{SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON};
+    use windows::Win32::Storage::FileSystem::FILE_FLAGS_AND_ATTRIBUTES;
+
+    unsafe {
+        let mut shfi = SHFILEINFOW::default();
+        let result = SHGetFileInfoW(
+            windows::core::PCWSTR(wide_path.as_ptr()),
+            FILE_FLAGS_AND_ATTRIBUTES(0),
+            Some(&mut shfi),
+            std::mem::size_of::<SHFILEINFOW>() as u32,
+            SHGFI_ICON | SHGFI_LARGEICON,
+        );
+        if result != 0 && !shfi.hIcon.is_invalid() {
+            Some(shfi.hIcon)
+        } else {
+            None
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+unsafe fn get_icon_extracticonex(
+    wide_path: &[u16],
+) -> Option<windows::Win32::UI::WindowsAndMessaging::HICON> {
+    use windows::Win32::UI::Shell::ExtractIconExW;
+    use windows::Win32::UI::WindowsAndMessaging::HICON;
+
+    unsafe {
+        let mut large_icon = HICON::default();
+        let count = ExtractIconExW(
+            windows::core::PCWSTR(wide_path.as_ptr()),
+            0,
+            Some(&mut large_icon),
+            None,
+            1,
+        );
+        if count > 0 && !large_icon.is_invalid() {
+            Some(large_icon)
+        } else {
+            None
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+unsafe fn extract_icon_pixels(
+    hicon: windows::Win32::UI::WindowsAndMessaging::HICON,
+    size: i32,
+) -> Option<(Vec<u8>, i32)> {
+    use windows::Win32::UI::WindowsAndMessaging::{GetIconInfo, ICONINFO};
+    use windows::Win32::Graphics::Gdi::*;
+
+    unsafe {
+        let mut icon_info = ICONINFO::default();
+        GetIconInfo(hicon, &mut icon_info).ok()?;
+
+        let hdc = CreateCompatibleDC(None);
+        if hdc.is_invalid() {
+            cleanup_bitmaps(&icon_info);
+            return None;
+        }
+
+        let mut bmi = BITMAPINFO {
+            bmiHeader: BITMAPINFOHEADER {
+                biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                biWidth: size,
+                biHeight: -size,
+                biPlanes: 1,
+                biBitCount: 32,
+                biCompression: BI_RGB.0,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let mut pixels = vec![0u8; (size * size * 4) as usize];
+        let hbm = if !icon_info.hbmColor.is_invalid() {
+            icon_info.hbmColor
+        } else {
+            icon_info.hbmMask
+        };
+
+        let old = SelectObject(hdc, hbm);
+        let scan_lines = GetDIBits(
+            hdc,
+            hbm,
+            0,
+            size as u32,
+            Some(pixels.as_mut_ptr() as *mut _),
+            &mut bmi,
+            DIB_RGB_COLORS,
+        );
+        let _ = SelectObject(hdc, old);
+        let _ = DeleteDC(hdc);
+        cleanup_bitmaps(&icon_info);
+
+        if scan_lines == 0 {
+            None
+        } else {
+            Some((pixels, size))
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+unsafe fn cleanup_bitmaps(icon_info: &windows::Win32::UI::WindowsAndMessaging::ICONINFO) {
+    use windows::Win32::Graphics::Gdi::DeleteObject;
+    unsafe {
+        if !icon_info.hbmColor.is_invalid() {
+            let _ = DeleteObject(icon_info.hbmColor);
+        }
+        if !icon_info.hbmMask.is_invalid() {
+            let _ = DeleteObject(icon_info.hbmMask);
+        }
+    }
 }
 
 #[cfg(target_os = "linux")]

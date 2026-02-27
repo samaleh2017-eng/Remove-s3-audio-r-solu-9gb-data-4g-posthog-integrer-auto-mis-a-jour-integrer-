@@ -19,7 +19,9 @@ windows = { version = "0.58", features = [
     "Win32_UI_Shell",
     "Win32_Graphics_Gdi",
     "Win32_System_Threading",
+    "Win32_Storage_FileSystem",
 ] }
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 [build-dependencies]
 tauri-winres = "0.3.5"
