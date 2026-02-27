@@ -42,9 +42,10 @@ export const ProgressAnimation: React.FC<{ color: string; speed?: number }> = ({
   )
 }
 
-export const ProcessingStatusDisplay: React.FC<{ color: string }> = ({
-  color,
-}) => (
+export const ProcessingStatusDisplay: React.FC<{
+  color: string
+  label?: string
+}> = ({ color, label }) => (
   <div
     style={{
       display: 'flex',
@@ -58,7 +59,7 @@ export const ProcessingStatusDisplay: React.FC<{ color: string }> = ({
     <span
       style={{ color, fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap' }}
     >
-      Transcribing
+      {label || 'Transcribing'}
     </span>
     <ProgressAnimation color={color} speed={0.18} />
   </div>

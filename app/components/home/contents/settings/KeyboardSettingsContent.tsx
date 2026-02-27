@@ -78,10 +78,15 @@ export default function KeyboardSettingsContent() {
     setTranslationType,
     setTranslationLanguageA,
     setTranslationLanguageB,
+    contextAwarenessCaptureMode,
+    setContextAwarenessCaptureMode,
   } = useSettingsStore()
   const transcribeShortcuts = getItoModeShortcuts(ItoMode.TRANSCRIBE)
   const editShortcuts = getItoModeShortcuts(ItoMode.EDIT)
   const translateShortcuts = getItoModeShortcuts(ItoMode.TRANSLATE)
+  const contextAwarenessShortcuts = getItoModeShortcuts(
+    ItoMode.CONTEXT_AWARENESS,
+  )
 
   return (
     <>
@@ -113,7 +118,7 @@ export default function KeyboardSettingsContent() {
           </div>
           <MultiShortcutEditor shortcuts={editShortcuts} mode={ItoMode.EDIT} />
         </div>
-        <div className="flex gap-4 justify-between py-4 px-5">
+        <div className="flex gap-4 justify-between py-4 px-5 border-b border-[#EBEBEB]">
           <div className="w-1/3">
             <div className="text-sm font-medium text-[#1f1f1f] mb-2">
               Translation Mode Shortcut
@@ -127,6 +132,22 @@ export default function KeyboardSettingsContent() {
           <MultiShortcutEditor
             shortcuts={translateShortcuts}
             mode={ItoMode.TRANSLATE}
+          />
+        </div>
+        <div className="flex gap-4 justify-between py-4 px-5">
+          <div className="w-1/3">
+            <div className="text-sm font-medium text-[#1f1f1f] mb-2">
+              Context Awareness Shortcut
+            </div>
+            <div className="text-[13px] text-[#888]">
+              Set the shortcut for Context Awareness mode. Captures your screen
+              or selected text, listens to your voice command, and generates a
+              contextual response.
+            </div>
+          </div>
+          <MultiShortcutEditor
+            shortcuts={contextAwarenessShortcuts}
+            mode={ItoMode.CONTEXT_AWARENESS}
           />
         </div>
       </div>
@@ -218,6 +239,47 @@ export default function KeyboardSettingsContent() {
             </div>
           </>
         )}
+      </div>
+
+      <div className="text-xs font-semibold tracking-[1.5px] text-[#999] uppercase mt-6 mb-3">
+        Context Awareness Settings
+      </div>
+      <div className="rounded-xl bg-white">
+        <div className="flex items-center justify-between py-4 px-5">
+          <div>
+            <div className="text-sm font-medium text-[#1f1f1f]">
+              Capture Mode
+            </div>
+            <div className="text-[13px] text-[#888]">
+              Choose what to capture when no text is selected.
+              <br />
+              Full screen captures everything visible. Active window captures
+              only the focused app.
+            </div>
+          </div>
+          <div className="flex rounded-lg bg-[#F2F2F2] p-0.5">
+            <button
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                contextAwarenessCaptureMode === 'fullscreen'
+                  ? 'bg-white text-[#1f1f1f] shadow-sm font-medium'
+                  : 'text-[#888] hover:text-[#1f1f1f]'
+              }`}
+              onClick={() => setContextAwarenessCaptureMode('fullscreen')}
+            >
+              Full Screen
+            </button>
+            <button
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                contextAwarenessCaptureMode === 'active_window'
+                  ? 'bg-white text-[#1f1f1f] shadow-sm font-medium'
+                  : 'text-[#888] hover:text-[#1f1f1f]'
+              }`}
+              onClick={() => setContextAwarenessCaptureMode('active_window')}
+            >
+              Active Window
+            </button>
+          </div>
+        </div>
       </div>
     </>
   )

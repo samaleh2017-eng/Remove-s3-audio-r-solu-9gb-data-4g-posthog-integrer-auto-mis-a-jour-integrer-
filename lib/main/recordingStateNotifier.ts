@@ -18,7 +18,10 @@ const DETECTION_TIMEOUT_MS = 200
 export class RecordingStateNotifier {
   private generation = 0
 
-  public notifyRecordingStarted(mode: ItoMode) {
+  public notifyRecordingStarted(
+    mode: ItoMode,
+    contextSource?: 'screen' | 'selection' | null,
+  ) {
     const gen = ++this.generation
 
     this.resolveAppTargetWithIcon()
@@ -29,6 +32,7 @@ export class RecordingStateNotifier {
           mode,
           appTargetName: result?.name ?? undefined,
           appTargetIconBase64: result?.iconBase64 ?? undefined,
+          contextSource: contextSource ?? undefined,
         })
       })
       .catch(() => {
@@ -36,6 +40,7 @@ export class RecordingStateNotifier {
         this.sendToWindows(IPC_EVENTS.RECORDING_STATE_UPDATE, {
           isRecording: true,
           mode,
+          contextSource: contextSource ?? undefined,
         })
       })
   }

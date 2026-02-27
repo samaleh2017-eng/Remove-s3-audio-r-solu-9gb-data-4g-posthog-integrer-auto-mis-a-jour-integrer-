@@ -191,6 +191,10 @@ export class ItoSessionManager {
     const context = await contextGrabber.gatherContext(mode)
     this.sonioxContext = context
 
+    if (mode === ItoMode.CONTEXT_AWARENESS && context.contextSource) {
+      recordingStateNotifier.notifyRecordingStarted(mode, context.contextSource)
+    }
+
     const { grammarServiceEnabled } = getAdvancedSettings()
     if (grammarServiceEnabled) {
       const cursorContext = await timingCollector.timeAsync(
@@ -209,6 +213,16 @@ export class ItoSessionManager {
     )
 
     await itoStreamController.scheduleConfigUpdate(context)
+
+    if (
+      itoStreamController.getCurrentMode() === ItoMode.CONTEXT_AWARENESS &&
+      context.contextSource
+    ) {
+      recordingStateNotifier.notifyRecordingStarted(
+        itoStreamController.getCurrentMode(),
+        context.contextSource,
+      )
+    }
 
     const { grammarServiceEnabled } = getAdvancedSettings()
     if (grammarServiceEnabled) {
@@ -427,6 +441,9 @@ export class ItoSessionManager {
           userDetailsContext: ctx.userDetails
             ? this.buildUserDetailsContextString(ctx.userDetails)
             : undefined,
+        }
+        if (mode === ItoMode.CONTEXT_AWARENESS && ctx.screenCaptureBase64) {
+          requestBody.screenshotBase64 = ctx.screenCaptureBase64
         }
         if (ctx.replacements && ctx.replacements.length > 0) {
           requestBody.replacements = ctx.replacements.map(r => ({

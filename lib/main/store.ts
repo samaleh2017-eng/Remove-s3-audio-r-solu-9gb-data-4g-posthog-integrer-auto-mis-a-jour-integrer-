@@ -39,6 +39,7 @@ export interface SettingsStore {
   translationType: 'one_way' | 'two_way'
   translationLanguageA: string
   translationLanguageB: string
+  contextAwarenessCaptureMode: 'fullscreen' | 'active_window'
 }
 
 export interface AuthState {
@@ -149,6 +150,13 @@ export const defaultValues: AppStore = {
         ) as KeyName[],
         mode: ItoMode.TRANSLATE,
       },
+      {
+        id: crypto.randomUUID(),
+        keys: ITO_MODE_SHORTCUT_DEFAULTS[ItoMode.CONTEXT_AWARENESS].map(
+          normalizeLegacyKey,
+        ) as KeyName[],
+        mode: ItoMode.CONTEXT_AWARENESS,
+      },
     ],
     firstName: '',
     lastName: '',
@@ -157,6 +165,7 @@ export const defaultValues: AppStore = {
     translationType: 'one_way' as const,
     translationLanguageA: 'fr',
     translationLanguageB: 'en',
+    contextAwarenessCaptureMode: 'fullscreen' as const,
   },
   main: { navExpanded: true },
   auth: { user: null, tokens: null, state: createNewAuthState() },

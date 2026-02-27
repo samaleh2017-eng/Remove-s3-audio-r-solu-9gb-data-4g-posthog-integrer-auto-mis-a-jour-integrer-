@@ -66,7 +66,8 @@ export class ItoStreamController {
     this.abortController = new AbortController()
     const abortSignal = this.abortController.signal
     const timingEventName =
-      this.currentMode === ItoMode.EDIT
+      this.currentMode === ItoMode.EDIT ||
+      this.currentMode === ItoMode.CONTEXT_AWARENESS
         ? TimingEventName.SERVER_EDITING
         : TimingEventName.SERVER_DICTATION
 
@@ -226,6 +227,11 @@ export class ItoStreamController {
             browserUrl: context.browserUrl ?? undefined,
             browserDomain: context.browserDomain ?? undefined,
             tonePrompt: context.tone?.promptTemplate ?? undefined,
+            screenCapture: context.screenCaptureBase64
+              ? new Uint8Array(
+                  Buffer.from(context.screenCaptureBase64, 'base64'),
+                )
+              : undefined,
           }),
           llmSettings: create(LlmSettingsSchema, {
             asrModel: context.advancedSettings.llm.asrModel ?? undefined,

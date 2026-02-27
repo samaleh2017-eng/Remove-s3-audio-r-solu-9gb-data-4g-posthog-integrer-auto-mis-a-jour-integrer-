@@ -17,6 +17,7 @@ export interface RecordingStatePayload {
   mode?: ItoMode
   appTargetName?: string | null
   appTargetIconBase64?: string | null
+  contextSource?: 'screen' | 'selection' | null
 }
 
 export interface ProcessingStatePayload {

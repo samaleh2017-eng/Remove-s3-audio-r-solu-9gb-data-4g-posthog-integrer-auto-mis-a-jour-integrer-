@@ -32,6 +32,7 @@ interface SettingsState {
   translationType: 'one_way' | 'two_way'
   translationLanguageA: string
   translationLanguageB: string
+  contextAwarenessCaptureMode: 'fullscreen' | 'active_window'
   setShareAnalytics: (share: boolean) => void
   setLaunchAtLogin: (launch: boolean) => void
   setShowItoBarAlways: (show: boolean) => void
@@ -43,6 +44,7 @@ interface SettingsState {
   setTranslationType: (type: 'one_way' | 'two_way') => void
   setTranslationLanguageA: (lang: string) => void
   setTranslationLanguageB: (lang: string) => void
+  setContextAwarenessCaptureMode: (mode: 'fullscreen' | 'active_window') => void
   createKeyboardShortcut: (mode: ItoMode) => ShortcutResult
   removeKeyboardShortcut: (shortcutId: string) => void
   getItoModeShortcuts: (mode: ItoMode) => KeyboardShortcutConfig[]
@@ -78,12 +80,19 @@ const getInitialState = () => {
         mode: ItoMode.TRANSCRIBE,
         id: crypto.randomUUID(),
       },
+      {
+        keys: ITO_MODE_SHORTCUT_DEFAULTS[ItoMode.CONTEXT_AWARENESS],
+        mode: ItoMode.CONTEXT_AWARENESS,
+        id: crypto.randomUUID(),
+      },
     ],
     translationTargetLanguage:
       storedSettings?.translationTargetLanguage ?? 'en',
     translationType: storedSettings?.translationType ?? 'one_way',
     translationLanguageA: storedSettings?.translationLanguageA ?? 'fr',
     translationLanguageB: storedSettings?.translationLanguageB ?? 'en',
+    contextAwarenessCaptureMode:
+      storedSettings?.contextAwarenessCaptureMode ?? 'fullscreen',
     firstName: storedSettings?.firstName ?? '',
     lastName: storedSettings?.lastName ?? '',
     email: storedSettings?.email ?? '',
@@ -197,6 +206,10 @@ export const useSettingsStore = create<SettingsState>(set => {
     setTranslationType: createSetter('translationType', 'keyboard'),
     setTranslationLanguageA: createSetter('translationLanguageA', 'keyboard'),
     setTranslationLanguageB: createSetter('translationLanguageB', 'keyboard'),
+    setContextAwarenessCaptureMode: createSetter(
+      'contextAwarenessCaptureMode',
+      'keyboard',
+    ),
     createKeyboardShortcut: (mode: ItoMode): ShortcutResult => {
       const currentShortcuts = useSettingsStore.getState().keyboardShortcuts
 

@@ -17,6 +17,7 @@ import type {
   ProcessingStatePayload,
 } from '@/lib/types/ipc'
 import type { AppTarget } from '@/app/store/useAppStylingStore'
+import { ItoMode } from '@/app/generated/ito_pb'
 
 const globalStyles = `
   html, body, #app {
@@ -108,6 +109,10 @@ const Pill = () => {
   const lastVolumeUpdateRef = useRef(0)
   const [volumeHistory, setVolumeHistory] = useState<number[]>([])
   const [appTarget, setAppTarget] = useState<AppTarget | null>(null)
+  const [contextSource, setContextSource] = useState<
+    'screen' | 'selection' | null
+  >(null)
+  const [currentMode, setCurrentMode] = useState<ItoMode | undefined>(undefined)
   const isRecordingRef = useRef(false)
   const hasBeenShownRef = useRef(false)
 
@@ -143,6 +148,14 @@ const Pill = () => {
           } as AppTarget)
         }
 
+        if (state.contextSource) {
+          setContextSource(state.contextSource)
+        }
+
+        if (state.mode !== undefined) {
+          setCurrentMode(state.mode)
+        }
+
         if (
           interactionSoundsRef.current &&
           wasRecording !== state.isRecording
@@ -171,6 +184,8 @@ const Pill = () => {
           volumeHistoryRef.current = []
           setVolumeHistory([])
           setAppTarget(null)
+          setContextSource(null)
+          setCurrentMode(undefined)
         }
       },
     )
@@ -376,7 +391,11 @@ const Pill = () => {
     }
 
     if (isProcessing) {
-      return <ProcessingStatusDisplay color="white" />
+      const processingLabel =
+        currentMode === ItoMode.CONTEXT_AWARENESS
+          ? 'Analyzing...'
+          : 'Transcribing'
+      return <ProcessingStatusDisplay color="white" label={processingLabel} />
     }
 
     return <StaticVisualizer color="white" />
@@ -452,10 +471,29 @@ const Pill = () => {
                       fontWeight: 600,
                       letterSpacing: '0.025em',
                       color: 'white',
+                      maxWidth: 140,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     {appTarget?.name || 'Ito'}
                   </span>
+                  {contextSource && (
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 500,
+                        color: 'rgba(255,255,255,0.6)',
+                        marginLeft: 6,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {contextSource === 'screen'
+                        ? '📷 Screen analyzed'
+                        : '📝 Selection'}
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
                   {renderRightContent()}

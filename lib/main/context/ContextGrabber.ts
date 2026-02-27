@@ -5,7 +5,7 @@ import {
   UserAdditionalInfoTable,
 } from '../sqlite/userDetailsRepo'
 import { type Tone } from '../sqlite/appTargetRepo'
-import { getCurrentUserId, getAdvancedSettings } from '../store'
+import { getCurrentUserId, getAdvancedSettings, store } from '../store'
 import { getActiveWindow } from '../../media/active-application'
 import {
   getSelectedTextString,
@@ -15,6 +15,8 @@ import { getBrowserUrl } from '../../media/browser-url'
 import { canGetContextFromCurrentApp } from '../../utils/applicationDetection'
 import log from 'electron-log'
 import { persistentContextDetector } from './PersistentContextDetector'
+import { captureScreen, CaptureMode } from '../../media/screenCapture'
+import { STORE_KEYS } from '../../constants/store-keys'
 
 const DEFAULT_LOCAL_USER_ID = 'local-user'
 import { timingCollector, TimingEventName } from '../timing/TimingCollector'
@@ -42,6 +44,8 @@ export interface ContextData {
   browserDomain: string | null
   advancedSettings: ReturnType<typeof getAdvancedSettings>
   tone: Tone | null
+  screenCaptureBase64: string | null
+  contextSource: 'screen' | 'selection' | null
 }
 
 /**
@@ -82,8 +86,33 @@ export class ContextGrabber {
         async () => await getBrowserUrl(activeWindow),
       )
 
-    // Get selected text if in EDIT mode
-    const contextText = await this.getContextText(mode)
+    let contextText = ''
+    let screenCaptureBase64: string | null = null
+    let contextSource: 'screen' | 'selection' | null = null
+
+    if (mode === ItoMode.CONTEXT_AWARENESS) {
+      contextText = await this.getContextText(ItoMode.EDIT)
+
+      if (contextText && contextText.trim().length > 0) {
+        contextSource = 'selection'
+        console.log('[ContextGrabber] CONTEXT_AWARENESS using selected text')
+      } else {
+        const settings = store.get(STORE_KEYS.SETTINGS)
+        const captureMode: CaptureMode =
+          settings?.contextAwarenessCaptureMode || 'fullscreen'
+
+        const capture = await captureScreen(captureMode)
+        if (capture) {
+          screenCaptureBase64 = capture.base64
+          contextSource = 'screen'
+          console.log(
+            `[ContextGrabber] CONTEXT_AWARENESS captured ${captureMode}: ${capture.width}x${capture.height}`,
+          )
+        }
+      }
+    } else {
+      contextText = await this.getContextText(mode)
+    }
 
     // Get advanced settings
     const advancedSettings = getAdvancedSettings()
@@ -121,6 +150,8 @@ export class ContextGrabber {
       browserDomain,
       advancedSettings,
       tone,
+      screenCaptureBase64,
+      contextSource,
     }
   }
 

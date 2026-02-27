@@ -237,12 +237,13 @@ async function handleKeyEventInMain(event: KeyEvent) {
       const currentShortcut = keyboardShortcuts.find(
         ks => ks.id === activeShortcutId,
       )
+      const nonSwitchableModes = [ItoMode.TRANSLATE, ItoMode.CONTEXT_AWARENESS]
       if (
-        currentShortcut?.mode === ItoMode.TRANSLATE ||
-        currentlyHeldShortcut.mode === ItoMode.TRANSLATE
+        nonSwitchableModes.includes(currentShortcut?.mode) ||
+        nonSwitchableModes.includes(currentlyHeldShortcut.mode)
       ) {
         console.info(
-          '[keyboard] Cannot switch to/from TRANSLATE mode mid-session, ignoring',
+          `[keyboard] Cannot switch to/from ${currentlyHeldShortcut.mode} mode mid-session, ignoring`,
         )
         return
       }
