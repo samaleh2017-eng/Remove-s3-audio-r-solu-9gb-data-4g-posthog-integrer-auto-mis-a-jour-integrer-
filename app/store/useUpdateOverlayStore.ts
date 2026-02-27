@@ -7,7 +7,7 @@ interface UpdateOverlayState {
   hide: () => void
 }
 
-export const useUpdateOverlayStore = create<UpdateOverlayState>((set) => ({
+export const useUpdateOverlayStore = create<UpdateOverlayState>(set => ({
   visible: false,
   version: null,
   show: (version = null) => set({ visible: true, version }),

@@ -131,7 +131,9 @@ export default function MyDetailsSettingsContent() {
               />
             </div>
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-foreground">Role</label>
+              <label className="text-sm font-medium text-foreground">
+                Role
+              </label>
               <input
                 type="text"
                 className={inputClass}
@@ -141,7 +143,9 @@ export default function MyDetailsSettingsContent() {
               />
             </div>
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-foreground">Email</label>
+              <label className="text-sm font-medium text-foreground">
+                Email
+              </label>
               <input
                 type="email"
                 className={inputClass}
@@ -151,7 +155,9 @@ export default function MyDetailsSettingsContent() {
               />
             </div>
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-foreground">Phone</label>
+              <label className="text-sm font-medium text-foreground">
+                Phone
+              </label>
               <input
                 type="tel"
                 className={inputClass}

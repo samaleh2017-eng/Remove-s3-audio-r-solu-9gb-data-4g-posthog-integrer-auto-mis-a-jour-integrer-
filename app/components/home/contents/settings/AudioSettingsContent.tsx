@@ -3,9 +3,17 @@ import { Switch } from '@/app/components/ui/switch'
 import { MicrophoneSelector } from '@/app/components/ui/microphone-selector'
 import { useSettingsStore } from '@/app/store/useSettingsStore'
 
-function SettingRow({ children, last }: { children: ReactNode; last?: boolean }) {
+function SettingRow({
+  children,
+  last,
+}: {
+  children: ReactNode
+  last?: boolean
+}) {
   return (
-    <div className={`flex items-center justify-between py-4 px-5 ${!last ? 'border-b border-[#EBEBEB]' : ''}`}>
+    <div
+      className={`flex items-center justify-between py-4 px-5 ${!last ? 'border-b border-[#EBEBEB]' : ''}`}
+    >
       {children}
     </div>
   )
@@ -26,7 +34,9 @@ export default function AudioSettingsContent() {
     <div className="rounded-xl bg-white">
       <SettingRow>
         <div>
-          <div className="text-sm font-medium text-[#1f1f1f]">Interaction Sounds</div>
+          <div className="text-sm font-medium text-[#1f1f1f]">
+            Interaction Sounds
+          </div>
           <div className="text-[13px] text-[#888]">
             Play a sound when Ito starts and stops recording.
           </div>

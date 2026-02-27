@@ -25,7 +25,8 @@ import AboutContent from './contents/AboutContent'
 import AppStylingContent from './contents/AppStylingContent'
 
 export default function HomeKit() {
-  const { navExpanded, currentPage, setCurrentPage, toggleNavExpanded } = useMainStore()
+  const { navExpanded, currentPage, setCurrentPage, toggleNavExpanded } =
+    useMainStore()
   const { metadata } = useUserMetadataStore()
   const { onboardingCompleted } = useOnboardingStore()
   const { isAuthenticated, user } = useAuth()
@@ -290,7 +291,9 @@ export default function HomeKit() {
 
       <Dialog
         open={isSettingsOpen}
-        onOpenChange={(open) => { if (!open) setCurrentPage('home') }}
+        onOpenChange={open => {
+          if (!open) setCurrentPage('home')
+        }}
       >
         <DialogContent
           showCloseButton={false}

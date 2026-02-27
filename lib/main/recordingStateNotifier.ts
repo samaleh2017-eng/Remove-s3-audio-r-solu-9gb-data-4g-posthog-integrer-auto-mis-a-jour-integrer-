@@ -59,23 +59,37 @@ export class RecordingStateNotifier {
     })
   }
 
-  private async resolveAppTargetWithIcon(): Promise<{ name: string; iconBase64: string | null } | null> {
+  private async resolveAppTargetWithIcon(): Promise<{
+    name: string
+    iconBase64: string | null
+  } | null> {
     const windowPromise = getActiveWindowWithIcon()
     const timeoutPromise = new Promise<null>(resolve =>
-      setTimeout(() => resolve(null), DETECTION_TIMEOUT_MS)
+      setTimeout(() => resolve(null), DETECTION_TIMEOUT_MS),
     )
     const window = await Promise.race([windowPromise, timeoutPromise])
 
     if (!window?.appName) return null
 
     const lowerName = window.appName.toLowerCase()
-    const blockedApps = new Set(['electron', 'ito', 'ito-dev', 'explorer', 'finder', 'desktop', 'shell'])
+    const blockedApps = new Set([
+      'electron',
+      'ito',
+      'ito-dev',
+      'explorer',
+      'finder',
+      'desktop',
+      'shell',
+    ])
     if (blockedApps.has(lowerName)) {
       return null
     }
 
     const browserInfo = await getBrowserUrl(window)
-    const resolved = await persistentContextDetector.resolveForWindow(window, browserInfo.domain)
+    const resolved = await persistentContextDetector.resolveForWindow(
+      window,
+      browserInfo.domain,
+    )
 
     if (resolved.target) {
       return {
@@ -95,7 +109,12 @@ export class RecordingStateNotifier {
   }
 
   private async autoRegisterApp(
-    window: { appName: string; iconBase64?: string | null; bundleId?: string | null; exePath?: string | null },
+    window: {
+      appName: string
+      iconBase64?: string | null
+      bundleId?: string | null
+      exePath?: string | null
+    },
     browserDomain: string | null,
   ): Promise<void> {
     const userId = getCurrentUserId() || DEFAULT_LOCAL_USER_ID
@@ -121,7 +140,9 @@ export class RecordingStateNotifier {
       browserDomain,
     )
 
-    console.log(`[RecordingStateNotifier] Auto-registered app: ${window.appName} (${appId})`)
+    console.log(
+      `[RecordingStateNotifier] Auto-registered app: ${window.appName} (${appId})`,
+    )
   }
 
   private sendToWindows(

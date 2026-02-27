@@ -13,9 +13,11 @@ export type BrowserUrlInfo = {
 
 const NATIVE_MODULE_NAME = 'browser-url-reader'
 
-export async function getBrowserUrl(activeWindow: {
-  appName: string
-} | null): Promise<BrowserUrlInfo> {
+export async function getBrowserUrl(
+  activeWindow: {
+    appName: string
+  } | null,
+): Promise<BrowserUrlInfo> {
   const nullResult: BrowserUrlInfo = { url: null, domain: null, browser: null }
 
   if (!activeWindow) return nullResult
@@ -161,8 +163,7 @@ async function getBrowserUrlAppleScript(
       'tell application "Microsoft Edge" to get URL of active tab of front window',
     'Brave Browser':
       'tell application "Brave Browser" to get URL of active tab of front window',
-    Opera:
-      'tell application "Opera" to get URL of active tab of front window',
+    Opera: 'tell application "Opera" to get URL of active tab of front window',
     Vivaldi:
       'tell application "Vivaldi" to get URL of active tab of front window',
   }

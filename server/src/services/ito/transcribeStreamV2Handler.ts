@@ -140,6 +140,9 @@ export class TranscribeStreamV2Handler {
         browserDomain: mergedConfig.context?.browserDomain || '',
         tonePrompt: mergedConfig.context?.tonePrompt || '',
         userDetailsContext,
+        screenCaptureBase64: mergedConfig.context?.screenCapture
+          ? Buffer.from(mergedConfig.context.screenCapture).toString('base64')
+          : '',
       }
 
       const mode = mergedConfig.context?.mode ?? detectItoMode(transcript)
@@ -434,6 +437,34 @@ export class TranscribeStreamV2Handler {
       ? windowContext.tonePrompt
       : basePrompt
 
+    if (mode === ItoMode.CONTEXT_AWARENESS && windowContext.screenCaptureBase64) {
+      console.log(`[${new Date().toISOString()}] Using Gemini Vision for CONTEXT_AWARENESS mode`)
+
+      const { geminiClient } = await import('../../clients/geminiClient.js')
+
+      if (geminiClient && typeof geminiClient.analyzeScreenContext === 'function') {
+        const userPrompt = createUserPromptWithContext(transcript, windowContext)
+
+        const visionResult = await serverTimingCollector.timeAsync(
+          ServerTimingEventName.LLM_ADJUSTMENT,
+          () => geminiClient.analyzeScreenContext(
+            windowContext.screenCaptureBase64,
+            userPrompt,
+            systemPrompt,
+            {
+              temperature: advancedSettings.llmTemperature,
+              model: 'gemini-2.5-flash',
+            },
+          ),
+        )
+
+        const filteredResult = this.filterLeakedContext(visionResult, windowContext.userDetailsContext)
+        return filteredResult
+      }
+
+      console.warn('[TranscribeStreamV2] Gemini client not available for vision, falling back to text-only')
+    }
+
     const userPrompt = createUserPromptWithContext(transcript, windowContext)
     const finalUserPrompt = `[LANGUAGE RULE: Your output MUST be in the SAME language as the user's dictated text below. Do NOT translate it. Do NOT switch to the language of the context metadata or system prompt. Preserve the original language of the spoken text exactly.]\n${userPrompt}`
     const llmProvider = getLlmProvider(advancedSettings.llmProvider)
@@ -558,6 +589,10 @@ export class TranscribeStreamV2Handler {
           updateCtx.tonePrompt !== ''
             ? updateCtx.tonePrompt
             : baseCtx.tonePrompt,
+        screenCapture:
+          updateCtx.screenCapture !== undefined
+            ? updateCtx.screenCapture
+            : baseCtx.screenCapture,
       }
     }
 

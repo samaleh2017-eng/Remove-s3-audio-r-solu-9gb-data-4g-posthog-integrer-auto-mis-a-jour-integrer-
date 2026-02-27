@@ -11,10 +11,7 @@ type Props = {
   onRequireLogin?: () => void
 }
 
-export default function CheckEmailContent({
-  email,
-  onUseAnotherEmail,
-}: Props) {
+export default function CheckEmailContent({ email, onUseAnotherEmail }: Props) {
   const [seconds, setSeconds] = useState(30)
   const [isResending, setIsResending] = useState(false)
   const [resendError, setResendError] = useState<string | null>(null)

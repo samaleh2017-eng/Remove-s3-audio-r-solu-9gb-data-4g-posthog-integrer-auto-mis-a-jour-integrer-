@@ -94,7 +94,6 @@ export const createFailedTokenResponse = (
   text: async () => JSON.stringify(error),
 })
 
-
 // Helper functions
 export const createTokensWithExpiry = (expiresInMinutes: number) => ({
   ...VALID_TOKEN_RESPONSE,

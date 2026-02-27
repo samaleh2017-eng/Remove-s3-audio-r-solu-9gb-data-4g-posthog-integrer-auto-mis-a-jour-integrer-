@@ -13,4 +13,11 @@ export interface LlmProvider {
     userPrompt: string,
     options?: IntentTranscriptionOptions,
   ): Promise<string>
+
+  analyzeScreenContext?(
+    screenshotBase64: string,
+    voiceCommand: string,
+    systemPrompt: string,
+    options?: IntentTranscriptionOptions,
+  ): Promise<string>
 }

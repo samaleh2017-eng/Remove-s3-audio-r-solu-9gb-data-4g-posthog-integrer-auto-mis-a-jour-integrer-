@@ -53,7 +53,9 @@ export default function UpdateOverlay() {
             Installing update{dots}
           </h2>
           {version && (
-            <p className="text-sm text-[var(--muted-foreground)]">Version {version}</p>
+            <p className="text-sm text-[var(--muted-foreground)]">
+              Version {version}
+            </p>
           )}
         </div>
 

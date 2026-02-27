@@ -6,4 +6,5 @@ export type ItoContext = {
   browserDomain: string
   tonePrompt: string
   userDetailsContext: string
+  screenCaptureBase64: string
 }

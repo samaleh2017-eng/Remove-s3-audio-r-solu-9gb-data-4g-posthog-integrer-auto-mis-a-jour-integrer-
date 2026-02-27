@@ -118,7 +118,9 @@ export default function SettingsContent() {
             ))}
           </div>
         </div>
-        <div className="text-xs text-[#aaa] px-3">Ito v{import.meta.env.VITE_ITO_VERSION}</div>
+        <div className="text-xs text-[#aaa] px-3">
+          Ito v{import.meta.env.VITE_ITO_VERSION}
+        </div>
       </div>
       <div className="flex-1 py-6 px-10 overflow-y-auto bg-[#F3F2F1]">
         <h1 className="font-sans text-2xl font-semibold text-[#1f1f1f] mb-6">

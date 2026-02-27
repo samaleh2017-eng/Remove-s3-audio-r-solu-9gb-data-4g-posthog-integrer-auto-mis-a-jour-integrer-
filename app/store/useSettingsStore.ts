@@ -79,7 +79,8 @@ const getInitialState = () => {
         id: crypto.randomUUID(),
       },
     ],
-    translationTargetLanguage: storedSettings?.translationTargetLanguage ?? 'en',
+    translationTargetLanguage:
+      storedSettings?.translationTargetLanguage ?? 'en',
     translationType: storedSettings?.translationType ?? 'one_way',
     translationLanguageA: storedSettings?.translationLanguageA ?? 'fr',
     translationLanguageB: storedSettings?.translationLanguageB ?? 'en',
@@ -189,7 +190,10 @@ export const useSettingsStore = create<SettingsState>(set => {
       set(partialState)
       syncToStore(partialState)
     },
-    setTranslationTargetLanguage: createSetter('translationTargetLanguage', 'keyboard'),
+    setTranslationTargetLanguage: createSetter(
+      'translationTargetLanguage',
+      'keyboard',
+    ),
     setTranslationType: createSetter('translationType', 'keyboard'),
     setTranslationLanguageA: createSetter('translationLanguageA', 'keyboard'),
     setTranslationLanguageB: createSetter('translationLanguageB', 'keyboard'),
@@ -338,7 +342,9 @@ if (typeof window !== 'undefined' && window.api?.dock?.getVisibility) {
       window.api?.dock
         ?.getVisibility()
         .then(dockSettings => {
-          const storedSettings = window.electron?.store?.get(STORE_KEYS.SETTINGS)
+          const storedSettings = window.electron?.store?.get(
+            STORE_KEYS.SETTINGS,
+          )
           if (dockSettings.isVisible !== storedSettings?.showAppInDock) {
             useSettingsStore.getState().setShowAppInDock(dockSettings.isVisible)
           }

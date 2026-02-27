@@ -143,13 +143,19 @@ const Pill = () => {
           } as AppTarget)
         }
 
-        if (interactionSoundsRef.current && wasRecording !== state.isRecording) {
+        if (
+          interactionSoundsRef.current &&
+          wasRecording !== state.isRecording
+        ) {
           soundPlayer.play(
             state.isRecording ? 'recording-start' : 'recording-stop',
           )
         }
 
-        if (!isManualRecordingRef.current && wasRecording !== state.isRecording) {
+        if (
+          !isManualRecordingRef.current &&
+          wasRecording !== state.isRecording
+        ) {
           const analyticsEvent = state.isRecording
             ? ANALYTICS_EVENTS.RECORDING_STARTED
             : ANALYTICS_EVENTS.RECORDING_COMPLETED

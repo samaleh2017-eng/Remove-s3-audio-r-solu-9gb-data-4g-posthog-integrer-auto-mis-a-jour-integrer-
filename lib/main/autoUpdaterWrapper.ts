@@ -80,14 +80,14 @@ function sendToMainWindow(event: string, ...args: any[]) {
 }
 
 function setupAutoUpdaterEvents() {
-  autoUpdater.on('update-available', (info) => {
+  autoUpdater.on('update-available', info => {
     console.log('[Updater] Update available:', info.version)
     updateStatus.updateAvailable = true
     updateStatus.availableVersion = info.version
     sendToMainWindow('update-available')
   })
 
-  autoUpdater.on('update-not-available', (info) => {
+  autoUpdater.on('update-not-available', info => {
     console.log('[Updater] No update available. Latest:', info.version)
     sendToMainWindow('update-not-available')
   })
@@ -104,7 +104,9 @@ function setupAutoUpdaterEvents() {
   })
 
   autoUpdater.on('download-progress', progressObj => {
-    console.log(`[Updater] Download: ${progressObj.percent.toFixed(2)}% (${progressObj.transferred}/${progressObj.total})`)
+    console.log(
+      `[Updater] Download: ${progressObj.percent.toFixed(2)}% (${progressObj.transferred}/${progressObj.total})`,
+    )
     sendToMainWindow('update-download-progress', progressObj.percent)
   })
 }

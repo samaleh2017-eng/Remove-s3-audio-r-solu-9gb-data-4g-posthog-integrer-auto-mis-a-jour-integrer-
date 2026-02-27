@@ -207,6 +207,9 @@ export function getPromptForMode(
     case ItoMode.TRANSLATE:
       basePrompt = ITO_MODE_PROMPT[ItoMode.TRANSLATE]
       break
+    case ItoMode.CONTEXT_AWARENESS:
+      basePrompt = ITO_MODE_PROMPT[ItoMode.CONTEXT_AWARENESS]
+      break
     case ItoMode.TRANSCRIBE:
     default:
       basePrompt =

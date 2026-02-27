@@ -183,7 +183,8 @@ const api = {
     delete: (id: string) => ipcRenderer.invoke('app-targets:delete', id),
     detectCurrent: () => ipcRenderer.invoke('app-targets:detect-current'),
     getCurrent: () => ipcRenderer.invoke('app-targets:get-current'),
-    listInstalledApps: (): Promise<string[]> => ipcRenderer.invoke('app-targets:list-installed-apps'),
+    listInstalledApps: (): Promise<string[]> =>
+      ipcRenderer.invoke('app-targets:list-installed-apps'),
   },
   tones: {
     list: () => ipcRenderer.invoke('tones:list'),
@@ -286,7 +287,8 @@ const api = {
     onDownloadProgress: (callback: (percent: number) => void): (() => void) => {
       const handler = (_: any, percent: number) => callback(percent)
       ipcRenderer.on('update-download-progress', handler)
-      return () => ipcRenderer.removeListener('update-download-progress', handler)
+      return () =>
+        ipcRenderer.removeListener('update-download-progress', handler)
     },
     installUpdate: () => ipcRenderer.send('install-update'),
     getUpdateStatus: () => ipcRenderer.invoke('get-update-status'),

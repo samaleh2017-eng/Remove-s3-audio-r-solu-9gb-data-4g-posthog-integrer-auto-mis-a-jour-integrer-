@@ -8,7 +8,12 @@ const SAMPLE_WINDOW = 5
 const MEMORY_HIGH_THRESHOLD_MB = 600
 const COOLDOWN_MS = 15_000
 
-const TIER_ORDER: Exclude<PerformanceTier, 'auto'>[] = ['low', 'balanced', 'high', 'ultra']
+const TIER_ORDER: Exclude<PerformanceTier, 'auto'>[] = [
+  'low',
+  'balanced',
+  'high',
+  'ultra',
+]
 
 class PerformanceAutotuner {
   private fpsHistory: number[] = []
@@ -52,13 +57,15 @@ class PerformanceAutotuner {
     const now = performance.now()
     if (now - this.lastChangeTime < COOLDOWN_MS) return
 
-    const avgFps = this.fpsHistory.reduce((a, b) => a + b, 0) / this.fpsHistory.length
+    const avgFps =
+      this.fpsHistory.reduce((a, b) => a + b, 0) / this.fpsHistory.length
     const currentIdx = TIER_ORDER.indexOf(store.activeTier)
 
     if (
       (avgFps < FPS_LOW_THRESHOLD ||
-        (metrics.memoryUsageMB && metrics.memoryUsageMB > MEMORY_HIGH_THRESHOLD_MB))
-      && currentIdx > 0
+        (metrics.memoryUsageMB &&
+          metrics.memoryUsageMB > MEMORY_HIGH_THRESHOLD_MB)) &&
+      currentIdx > 0
     ) {
       const newTier = TIER_ORDER[currentIdx - 1]
       store._autoAdjustTier(newTier)

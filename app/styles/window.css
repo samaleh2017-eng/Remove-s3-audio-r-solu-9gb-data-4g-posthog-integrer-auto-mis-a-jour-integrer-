@@ -11,14 +11,14 @@
   --window-titlebar-font-weight: 500;
   --window-c-popup-font-weight: 500;
 
-  --window-c-background: #E4E1DE;
-  --window-c-titlebar-background: #E4E1DE;
+  --window-c-background: #e4e1de;
+  --window-c-titlebar-background: #e4e1de;
   --window-c-titlebar-border: transparent;
   --window-c-text: var(--foreground, #1f1f1f);
   --window-c-hover: #f5f5f5;
   --window-c-popup-background: #ffffff;
-  --window-c-popup-border: rgba(31,31,31,0.08);
-  --window-c-popup-shadow: rgba(31,31,31,0.06);
+  --window-c-popup-border: rgba(31, 31, 31, 0.08);
+  --window-c-popup-shadow: rgba(31, 31, 31, 0.06);
   --window-c-separator: #80808033;
   --window-c-control-hover: #0000001a;
   --window-c-control-close-hover: #ff453b;
@@ -46,8 +46,8 @@
   --window-c-text: var(--foreground, #fafafa);
   --window-c-hover: #1a1a1a;
   --window-c-popup-background: #141414;
-  --window-c-popup-border: rgba(250,250,250,0.08);
-  --window-c-popup-shadow: rgba(0,0,0,0.3);
+  --window-c-popup-border: rgba(250, 250, 250, 0.08);
+  --window-c-popup-shadow: rgba(0, 0, 0, 0.3);
   --window-c-separator: #80808033;
   --window-c-control-hover: #0000003d;
   --window-c-control-close-hover: #c42b1c;

@@ -1,10 +1,17 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-  DialogDescription, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from '@/app/components/ui/dialog'
 import { Button } from '@/app/components/ui/button'
-import { useAppStylingStore, type MatchType } from '@/app/store/useAppStylingStore'
+import {
+  useAppStylingStore,
+  type MatchType,
+} from '@/app/store/useAppStylingStore'
 import { Globe, Check, Refresh, Search } from '@mynaui/icons-react'
 import AppWindowIcon from '@/app/components/icons/AppWindowIcon'
 
@@ -12,10 +19,16 @@ function extractDomainFromInput(input: string): string | null {
   const trimmed = input.trim()
   if (!trimmed) return null
   try {
-    const url = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`)
+    const url = new URL(
+      trimmed.startsWith('http') ? trimmed : `https://${trimmed}`,
+    )
     return url.hostname
   } catch {
-    if (trimmed.includes('.') && !trimmed.includes(' ') && trimmed.length >= 3) {
+    if (
+      trimmed.includes('.') &&
+      !trimmed.includes(' ') &&
+      trimmed.length >= 3
+    ) {
       return trimmed.toLowerCase()
     }
     return null
@@ -59,7 +72,9 @@ export function ManualAddDialog({ open, onOpenChange }: Props) {
       setIsRegistering(false)
       const signal = { cancelled: false }
       fetchInstalledApps(signal)
-      return () => { signal.cancelled = true }
+      return () => {
+        signal.cancelled = true
+      }
     }
   }, [open])
 
@@ -75,7 +90,10 @@ export function ManualAddDialog({ open, onOpenChange }: Props) {
     return installedApps.filter(app => app.toLowerCase().includes(lower))
   }, [installedApps, appFilter])
 
-  const extractedDomain = useMemo(() => extractDomainFromInput(domainInput), [domainInput])
+  const extractedDomain = useMemo(
+    () => extractDomainFromInput(domainInput),
+    [domainInput],
+  )
 
   const canAdd = selectedType === 'app' ? !!selectedApp : !!extractedDomain
 
@@ -117,15 +135,21 @@ export function ManualAddDialog({ open, onOpenChange }: Props) {
                   : 'border-[var(--border)] hover:border-warm-200'
               }`}
             >
-              <div className={`p-2 rounded-lg ${selectedType === 'app' ? 'bg-blue-500 text-white' : 'bg-[var(--color-muted-bg)]'}`}>
+              <div
+                className={`p-2 rounded-lg ${selectedType === 'app' ? 'bg-blue-500 text-white' : 'bg-[var(--color-muted-bg)]'}`}
+              >
                 <AppWindowIcon className="h-4 w-4" />
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm font-medium">Application</span>
-                  {selectedType === 'app' && <Check className="h-3.5 w-3.5 text-blue-500" />}
+                  {selectedType === 'app' && (
+                    <Check className="h-3.5 w-3.5 text-blue-500" />
+                  )}
                 </div>
-                <p className="text-xs text-[var(--color-subtext)]">Match by app name</p>
+                <p className="text-xs text-[var(--color-subtext)]">
+                  Match by app name
+                </p>
               </div>
             </button>
 
@@ -138,15 +162,21 @@ export function ManualAddDialog({ open, onOpenChange }: Props) {
                   : 'border-[var(--border)] hover:border-warm-200'
               }`}
             >
-              <div className={`p-2 rounded-lg ${selectedType === 'domain' ? 'bg-blue-500 text-white' : 'bg-[var(--color-muted-bg)]'}`}>
+              <div
+                className={`p-2 rounded-lg ${selectedType === 'domain' ? 'bg-blue-500 text-white' : 'bg-[var(--color-muted-bg)]'}`}
+              >
                 <Globe className="h-4 w-4" />
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm font-medium">Domain</span>
-                  {selectedType === 'domain' && <Check className="h-3.5 w-3.5 text-blue-500" />}
+                  {selectedType === 'domain' && (
+                    <Check className="h-3.5 w-3.5 text-blue-500" />
+                  )}
                 </div>
-                <p className="text-xs text-[var(--color-subtext)]">Match by website</p>
+                <p className="text-xs text-[var(--color-subtext)]">
+                  Match by website
+                </p>
               </div>
             </button>
           </div>
@@ -168,7 +198,9 @@ export function ManualAddDialog({ open, onOpenChange }: Props) {
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-[var(--color-muted-bg)] transition-colors"
                   title="Refresh app list"
                 >
-                  <Refresh className={`h-3.5 w-3.5 text-[var(--color-subtext)] ${isLoadingApps ? 'animate-spin' : ''}`} />
+                  <Refresh
+                    className={`h-3.5 w-3.5 text-[var(--color-subtext)] ${isLoadingApps ? 'animate-spin' : ''}`}
+                  />
                 </button>
               </div>
 
@@ -199,7 +231,9 @@ export function ManualAddDialog({ open, onOpenChange }: Props) {
                   ))
                 )}
               </div>
-              <p className="text-xs text-[var(--color-subtext)]">Apps installed on your computer</p>
+              <p className="text-xs text-[var(--color-subtext)]">
+                Apps installed on your computer
+              </p>
             </div>
           ) : (
             <div className="space-y-1.5">
@@ -210,24 +244,26 @@ export function ManualAddDialog({ open, onOpenChange }: Props) {
                 value={domainInput}
                 onChange={e => setDomainInput(e.target.value)}
               />
-              {domainInput.trim() && (
-                extractedDomain ? (
+              {domainInput.trim() &&
+                (extractedDomain ? (
                   <p className="text-xs text-green-600 flex items-center gap-1">
                     <Check className="h-3 w-3" />
-                    Will match: <span className="font-medium">{extractedDomain}</span>
+                    Will match:{' '}
+                    <span className="font-medium">{extractedDomain}</span>
                   </p>
                 ) : (
                   <p className="text-xs text-red-500">
                     Invalid domain — enter a valid URL or domain name
                   </p>
-                )
-              )}
+                ))}
             </div>
           )}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
           <Button onClick={handleAdd} disabled={!canAdd || isRegistering}>
             {isRegistering ? 'Adding...' : 'Add'}
           </Button>

@@ -31,7 +31,11 @@ interface UpdaterAPI {
   onDownloadProgress: (callback: (percent: number) => void) => () => void
   installUpdate: () => void
   downloadUpdate: () => Promise<{ success: boolean; error?: string }>
-  getUpdateStatus: () => Promise<{ updateAvailable: boolean; updateDownloaded: boolean; availableVersion?: string }>
+  getUpdateStatus: () => Promise<{
+    updateAvailable: boolean
+    updateDownloaded: boolean
+    availableVersion?: string
+  }>
   checkForUpdates: () => Promise<{ success: boolean; error?: string }>
 }
 

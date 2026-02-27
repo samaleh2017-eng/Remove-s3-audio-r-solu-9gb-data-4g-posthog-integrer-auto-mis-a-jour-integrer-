@@ -4,12 +4,11 @@ interface LoadingAnimationProps {
   color?: string
 }
 
-export const LoadingAnimation: React.FC<LoadingAnimationProps> = React.memo(function LoadingAnimation({
-  color = '#FFFFFF',
-}) {
-  return (
-    <>
-      <style>{`
+export const LoadingAnimation: React.FC<LoadingAnimationProps> = React.memo(
+  function LoadingAnimation({ color = '#FFFFFF' }) {
+    return (
+      <>
+        <style>{`
         @keyframes shadowRolling {
           0% {
             box-shadow: 0px 0 rgba(255, 255, 255, 0), 0px 0 rgba(255, 255, 255, 0), 0px 0 rgba(255, 255, 255, 0), 0px 0 rgba(255, 255, 255, 0);
@@ -40,19 +39,20 @@ export const LoadingAnimation: React.FC<LoadingAnimationProps> = React.memo(func
           }
         }
       `}</style>
-      <span
-        style={{
-          width: '8px',
-          height: '8px',
-          borderRadius: '50%',
-          display: 'block',
-          position: 'relative',
-          color: color,
-          left: '-100px',
-          boxSizing: 'border-box',
-          animation: 'shadowRolling 2s linear infinite',
-        }}
-      />
-    </>
-  )
-})
+        <span
+          style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            display: 'block',
+            position: 'relative',
+            color: color,
+            left: '-100px',
+            boxSizing: 'border-box',
+            animation: 'shadowRolling 2s linear infinite',
+          }}
+        />
+      </>
+    )
+  },
+)

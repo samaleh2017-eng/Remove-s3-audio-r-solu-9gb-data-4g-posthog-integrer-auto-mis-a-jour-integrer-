@@ -30,7 +30,13 @@ function LanguageSelect({
   const selectedLang = SUPPORTED_LANGUAGES.find(l => l.code === value)
 
   return (
-    <Select value={value} onValueChange={onValueChange} onOpenChange={open => { if (!open) setSearch('') }}>
+    <Select
+      value={value}
+      onValueChange={onValueChange}
+      onOpenChange={open => {
+        if (!open) setSearch('')
+      }}
+    >
       <SelectTrigger className="w-[200px] bg-white">
         <SelectValue>
           {selectedLang ? `${selectedLang.name} (${selectedLang.code})` : value}
@@ -82,10 +88,12 @@ export default function KeyboardSettingsContent() {
       <div className="rounded-xl bg-white">
         <div className="flex gap-4 justify-between py-4 px-5 border-b border-[#EBEBEB]">
           <div className="w-1/3">
-            <div className="text-sm font-medium text-[#1f1f1f] mb-2">Keyboard Shortcut</div>
+            <div className="text-sm font-medium text-[#1f1f1f] mb-2">
+              Keyboard Shortcut
+            </div>
             <div className="text-[13px] text-[#888]">
-              Set the keyboard shortcut to activate Ito. Press the keys you
-              want to use for your shortcut.
+              Set the keyboard shortcut to activate Ito. Press the keys you want
+              to use for your shortcut.
             </div>
           </div>
           <MultiShortcutEditor
@@ -99,15 +107,11 @@ export default function KeyboardSettingsContent() {
               Intelligent Mode Shortcut
             </div>
             <div className="text-[13px] text-[#888]">
-              Set the shortcut to activate Intelligent Mode. Press your
-              hotkey, speak to Ito, and the LLM's output is pasted into your
-              text box.
+              Set the shortcut to activate Intelligent Mode. Press your hotkey,
+              speak to Ito, and the LLM's output is pasted into your text box.
             </div>
           </div>
-          <MultiShortcutEditor
-            shortcuts={editShortcuts}
-            mode={ItoMode.EDIT}
-          />
+          <MultiShortcutEditor shortcuts={editShortcuts} mode={ItoMode.EDIT} />
         </div>
         <div className="flex gap-4 justify-between py-4 px-5">
           <div className="w-1/3">
@@ -133,7 +137,9 @@ export default function KeyboardSettingsContent() {
       <div className="rounded-xl bg-white">
         <div className="flex items-center justify-between py-4 px-5 border-b border-[#EBEBEB]">
           <div>
-            <div className="text-sm font-medium text-[#1f1f1f]">Translation Type</div>
+            <div className="text-sm font-medium text-[#1f1f1f]">
+              Translation Type
+            </div>
             <div className="text-[13px] text-[#888]">
               One-way: translates any spoken language into your target language.
               <br />
@@ -167,9 +173,12 @@ export default function KeyboardSettingsContent() {
         {translationType === 'one_way' ? (
           <div className="flex items-center justify-between py-4 px-5">
             <div>
-              <div className="text-sm font-medium text-[#1f1f1f]">Target Language</div>
+              <div className="text-sm font-medium text-[#1f1f1f]">
+                Target Language
+              </div>
               <div className="text-[13px] text-[#888]">
-                Spoken audio in any language will be translated into this language.
+                Spoken audio in any language will be translated into this
+                language.
               </div>
             </div>
             <LanguageSelect
@@ -181,7 +190,9 @@ export default function KeyboardSettingsContent() {
           <>
             <div className="flex items-center justify-between py-4 px-5 border-b border-[#EBEBEB]">
               <div>
-                <div className="text-sm font-medium text-[#1f1f1f]">Language A</div>
+                <div className="text-sm font-medium text-[#1f1f1f]">
+                  Language A
+                </div>
                 <div className="text-[13px] text-[#888]">
                   First language in the translation pair.
                 </div>
@@ -193,7 +204,9 @@ export default function KeyboardSettingsContent() {
             </div>
             <div className="flex items-center justify-between py-4 px-5">
               <div>
-                <div className="text-sm font-medium text-[#1f1f1f]">Language B</div>
+                <div className="text-sm font-medium text-[#1f1f1f]">
+                  Language B
+                </div>
                 <div className="text-[13px] text-[#888]">
                   Second language in the translation pair.
                 </div>

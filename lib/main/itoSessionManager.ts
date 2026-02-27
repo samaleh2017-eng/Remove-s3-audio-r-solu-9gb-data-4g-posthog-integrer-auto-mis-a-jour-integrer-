@@ -10,7 +10,10 @@ import { getAdvancedSettings, store } from './store'
 import log from 'electron-log'
 import { preventAppNap, allowAppNap } from './appNap'
 import { timingCollector, TimingEventName } from './timing/TimingCollector'
-import { SonioxStreamingService, SonioxTranslationConfig } from './soniox/SonioxStreamingService'
+import {
+  SonioxStreamingService,
+  SonioxTranslationConfig,
+} from './soniox/SonioxStreamingService'
 import { sonioxTempKeyManager } from './soniox/SonioxTempKeyManager'
 import { audioRecorderService } from '../media/audio'
 import { itoHttpClient } from '../clients/itoHttpClient'
@@ -164,7 +167,9 @@ export class ItoSessionManager {
       }
     } catch (error) {
       if (this.currentMode === ItoMode.TRANSLATE) {
-        console.error('[itoSessionManager] Translation mode requires Soniox. Ensure Soniox API key is configured on the server.')
+        console.error(
+          '[itoSessionManager] Translation mode requires Soniox. Ensure Soniox API key is configured on the server.',
+        )
       }
       log.error('[itoSessionManager] Failed to start Soniox session:', error)
       this.sonioxService = null
@@ -338,7 +343,9 @@ export class ItoSessionManager {
 
   private async completeSonioxSession() {
     if (!this.sonioxSessionActive) {
-      console.warn('[itoSessionManager] completeSonioxSession called but no active session, skipping')
+      console.warn(
+        '[itoSessionManager] completeSonioxSession called but no active session, skipping',
+      )
       return
     }
     this.sonioxSessionActive = false
@@ -363,7 +370,10 @@ export class ItoSessionManager {
       try {
         rawTranscript = await service.stop()
       } catch (error) {
-        console.error('[itoSessionManager] Error stopping Soniox service:', error)
+        console.error(
+          '[itoSessionManager] Error stopping Soniox service:',
+          error,
+        )
         rawTranscript = service.getAccumulatedText() || ''
       }
     }
@@ -384,7 +394,14 @@ export class ItoSessionManager {
 
       const requestBody: Record<string, any> = {
         transcript: rawTranscript,
-        mode: mode === ItoMode.EDIT ? 'edit' : mode === ItoMode.TRANSLATE ? 'translate' : 'transcribe',
+        mode:
+          mode === ItoMode.EDIT
+            ? 'edit'
+            : mode === ItoMode.TRANSLATE
+              ? 'translate'
+              : mode === ItoMode.CONTEXT_AWARENESS
+                ? 'context_awareness'
+                : 'transcribe',
         llmSettings: {
           llmProvider: llm?.llmProvider || undefined,
           llmModel: llm?.llmModel || undefined,
@@ -437,7 +454,10 @@ export class ItoSessionManager {
 
         this.textInserter.insertText(textToInsert)
       } else {
-        console.error('[itoSessionManager] LLM adjustment failed:', response?.error)
+        console.error(
+          '[itoSessionManager] LLM adjustment failed:',
+          response?.error,
+        )
         this.textInserter.insertText(rawTranscript)
       }
     } catch (error) {
@@ -603,7 +623,10 @@ export class ItoSessionManager {
     this.sonioxService = null
 
     voiceInputService.stopAudioRecording().catch(e => {
-      console.error('[itoSessionManager] Error stopping audio after Soniox error:', e)
+      console.error(
+        '[itoSessionManager] Error stopping audio after Soniox error:',
+        e,
+      )
     })
 
     recordingStateNotifier.notifyRecordingStopped()

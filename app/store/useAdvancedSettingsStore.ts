@@ -26,9 +26,8 @@ interface AdvancedSettingsState {
 
 // Initialize from electron store
 const getInitialState = () => {
-  const storedAdvancedSettings = window.electron?.store?.get(
-    STORE_KEYS.ADVANCED_SETTINGS,
-  ) || {}
+  const storedAdvancedSettings =
+    window.electron?.store?.get(STORE_KEYS.ADVANCED_SETTINGS) || {}
 
   return {
     llm: storedAdvancedSettings?.llm,

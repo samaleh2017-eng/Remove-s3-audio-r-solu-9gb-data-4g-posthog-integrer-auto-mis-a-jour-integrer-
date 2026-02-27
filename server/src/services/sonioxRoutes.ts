@@ -12,8 +12,9 @@ import type { SupabaseJwtPayload } from '../auth/supabaseJwt.js'
 
 interface AdjustTranscriptBody {
   transcript: string
-  mode: 'transcribe' | 'edit' | 'translate'
+  mode: 'transcribe' | 'edit' | 'translate' | 'context_awareness'
   targetLanguage?: string
+  screenshotBase64?: string
   context?: {
     windowTitle?: string
     appName?: string
@@ -93,6 +94,7 @@ export const registerSonioxRoutes = async (
 
       const mode = body.mode === 'edit' ? ItoMode.EDIT
                    : body.mode === 'translate' ? ItoMode.TRANSLATE
+                   : body.mode === 'context_awareness' ? ItoMode.CONTEXT_AWARENESS
                    : ItoMode.TRANSCRIBE
 
       const windowContext: ItoContext = {
@@ -103,6 +105,7 @@ export const registerSonioxRoutes = async (
         browserDomain: body.context?.browserDomain || '',
         tonePrompt: body.context?.tonePrompt || '',
         userDetailsContext: body.context?.userDetailsContext || '',
+        screenCaptureBase64: body.screenshotBase64 || '',
       }
 
       const advancedSettings = {
@@ -131,6 +134,26 @@ export const registerSonioxRoutes = async (
       }
 
       const userPrompt = createUserPromptWithContext(trimmedTranscript, windowContext)
+
+      if (mode === ItoMode.CONTEXT_AWARENESS && windowContext.screenCaptureBase64) {
+        const { geminiClient } = await import('../clients/geminiClient.js')
+
+        if (geminiClient && typeof geminiClient.analyzeScreenContext === 'function') {
+          const visionResult = await geminiClient.analyzeScreenContext(
+            windowContext.screenCaptureBase64,
+            userPrompt,
+            hasTonePrompt ? windowContext.tonePrompt : getPromptForMode(mode, advancedSettings),
+            {
+              temperature: advancedSettings.llmTemperature,
+              model: 'gemini-2.5-flash',
+            },
+          )
+
+          const filteredResult = filterLeakedContext(visionResult)
+          reply.send({ success: true, transcript: filteredResult })
+          return
+        }
+      }
 
       let finalUserPrompt = userPrompt
       if (mode === ItoMode.TRANSLATE) {

@@ -28,7 +28,10 @@ export class SonioxStreamingService extends EventEmitter {
   private hasErrored = false
   private isTranslationMode = false
 
-  async start(tempApiKey: string, translationConfig?: SonioxTranslationConfig): Promise<void> {
+  async start(
+    tempApiKey: string,
+    translationConfig?: SonioxTranslationConfig,
+  ): Promise<void> {
     if (this.isActive) {
       console.warn(
         '[SonioxStreaming] Already active, stopping previous session',
@@ -118,7 +121,10 @@ export class SonioxStreamingService extends EventEmitter {
 
     await this.session.connect()
     this.isActive = true
-    console.log('[SonioxStreaming] Session started', translationConfig ? '(translation mode)' : '(transcription mode)')
+    console.log(
+      '[SonioxStreaming] Session started',
+      translationConfig ? '(translation mode)' : '(transcription mode)',
+    )
   }
 
   private safeEmitError(error: Error): void {

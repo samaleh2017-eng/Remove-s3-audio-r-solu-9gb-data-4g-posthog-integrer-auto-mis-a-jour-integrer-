@@ -234,9 +234,16 @@ async function handleKeyEventInMain(event: KeyEvent) {
       console.info('lib Shortcut ACTIVATED, starting recording...')
       await itoSessionManager.startSession(currentlyHeldShortcut.mode)
     } else if (activeShortcutId !== currentlyHeldShortcut.id) {
-      const currentShortcut = keyboardShortcuts.find(ks => ks.id === activeShortcutId)
-      if (currentShortcut?.mode === ItoMode.TRANSLATE || currentlyHeldShortcut.mode === ItoMode.TRANSLATE) {
-        console.info('[keyboard] Cannot switch to/from TRANSLATE mode mid-session, ignoring')
+      const currentShortcut = keyboardShortcuts.find(
+        ks => ks.id === activeShortcutId,
+      )
+      if (
+        currentShortcut?.mode === ItoMode.TRANSLATE ||
+        currentlyHeldShortcut.mode === ItoMode.TRANSLATE
+      ) {
+        console.info(
+          '[keyboard] Cannot switch to/from TRANSLATE mode mid-session, ignoring',
+        )
         return
       }
       // Different shortcut detected while already recording - change mode

@@ -15,7 +15,7 @@ if (!AUTH_DISABLED && supabaseUrl && supabaseAnonKey) {
         persistSession: true,
         detectSessionInUrl: false,
         storage: {
-          getItem: (key) => {
+          getItem: key => {
             try {
               return localStorage.getItem(key)
             } catch {
@@ -29,7 +29,7 @@ if (!AUTH_DISABLED && supabaseUrl && supabaseAnonKey) {
               console.warn('localStorage not available')
             }
           },
-          removeItem: (key) => {
+          removeItem: key => {
             try {
               localStorage.removeItem(key)
             } catch {

@@ -120,6 +120,50 @@ class GeminiClient implements LlmProvider {
       return userPrompt
     }
   }
+
+  public async analyzeScreenContext(
+    screenshotBase64: string,
+    voiceCommand: string,
+    systemPrompt: string,
+    options?: IntentTranscriptionOptions,
+  ): Promise<string> {
+    if (!this.isAvailable) {
+      throw new ClientUnavailableError(ClientProvider.GEMINI)
+    }
+
+    try {
+      const parts: Array<{ inlineData?: { mimeType: string; data: string }; text?: string }> = [
+        {
+          inlineData: {
+            mimeType: 'image/png',
+            data: screenshotBase64,
+          },
+        },
+        {
+          text: voiceCommand,
+        },
+      ]
+
+      const response = await this._client.models.generateContent({
+        model: options?.model || 'gemini-2.5-flash',
+        contents: [
+          {
+            role: 'user',
+            parts,
+          },
+        ],
+        config: {
+          systemInstruction: systemPrompt,
+          temperature: options?.temperature ?? 0.1,
+        },
+      })
+
+      return response.text?.trim() || ' '
+    } catch (error: any) {
+      console.error('An error occurred during Gemini screen context analysis:', error)
+      return this.adjustTranscript(voiceCommand, options)
+    }
+  }
 }
 
 // --- Singleton Instance ---

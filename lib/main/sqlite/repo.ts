@@ -248,7 +248,12 @@ export class NotesTable {
       : 'SELECT * FROM notes WHERE user_id IS NULL AND deleted_at IS NULL ORDER BY created_at DESC'
     const params = user_id ? [user_id] : []
     const result = await all<Note>(query, params)
-    console.log('[DEBUG][NotesTable] findAll returning', result.length, 'notes:', result)
+    console.log(
+      '[DEBUG][NotesTable] findAll returning',
+      result.length,
+      'notes:',
+      result,
+    )
     return result
   }
 
@@ -364,13 +369,21 @@ export class DictionaryTable {
   }
 
   static async findAll(user_id?: string): Promise<DictionaryItem[]> {
-    console.log('[DEBUG][DictionaryTable] findAll called with user_id:', user_id)
+    console.log(
+      '[DEBUG][DictionaryTable] findAll called with user_id:',
+      user_id,
+    )
     const query = user_id
       ? 'SELECT * FROM dictionary_items WHERE user_id = ? AND deleted_at IS NULL ORDER BY word ASC'
       : 'SELECT * FROM dictionary_items WHERE user_id IS NULL AND deleted_at IS NULL ORDER BY word ASC'
     const params = user_id ? [user_id] : []
     const result = await all<DictionaryItem>(query, params)
-    console.log('[DEBUG][DictionaryTable] findAll returning', result.length, 'items:', result)
+    console.log(
+      '[DEBUG][DictionaryTable] findAll returning',
+      result.length,
+      'items:',
+      result,
+    )
     return result
   }
 

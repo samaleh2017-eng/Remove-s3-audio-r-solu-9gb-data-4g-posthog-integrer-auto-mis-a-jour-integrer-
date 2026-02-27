@@ -215,10 +215,7 @@ export class PersistentContextDetector {
 
   public async removeSignaturesForTarget(targetId: string): Promise<void> {
     const userId = getCurrentUserId() || DEFAULT_LOCAL_USER_ID
-    const sigs = await AppTargetSignatureTable.findAllByTarget(
-      targetId,
-      userId,
-    )
+    const sigs = await AppTargetSignatureTable.findAllByTarget(targetId, userId)
     for (const sig of sigs) {
       this.resultCache.delete(sig.signature)
     }
