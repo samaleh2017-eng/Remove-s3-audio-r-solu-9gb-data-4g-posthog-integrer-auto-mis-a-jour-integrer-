@@ -90,13 +90,22 @@ foreach ($dir in $directories) {
 Write-Step 'Cleaning registry entries…'
 
 $registryKeys = @(
+    # App identity keys
     'HKCU:\Software\Ito',
     'HKCU:\Software\ito',
     'HKCU:\Software\ai.ito.ito',
     'HKCU:\Software\ai.ito.ito-dev',
     'HKCU:\Software\ai.ito.ito-local',
+    # URL protocol handlers — electron-builder registers these for deep links
+    # electron-builder.config.js → protocols.schemes: ['ito'] / ['ito-dev']
+    'HKCU:\Software\Classes\ito',
+    'HKCU:\Software\Classes\ito-dev',
+    'HKCU:\Software\Classes\ito-local',
+    # Add/Remove Programs uninstall entries
     'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Ito',
-    'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\ai.ito.ito'
+    'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\ai.ito.ito',
+    'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\ai.ito.ito-dev',
+    'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\ai.ito.ito-local'
 )
 
 foreach ($key in $registryKeys) {

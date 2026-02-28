@@ -55,11 +55,27 @@
   RMDir /r "$LOCALAPPDATA\Programs\Ito-local"
 
   ; ------------------------------------------------------------------
-  ; Windows registry
+  ; Windows registry — app identity keys
   ; ------------------------------------------------------------------
   DeleteRegKey HKCU "Software\Ito"
   DeleteRegKey HKCU "Software\ito"
   DeleteRegKey HKCU "Software\ai.ito.ito"
   DeleteRegKey HKCU "Software\ai.ito.ito-dev"
   DeleteRegKey HKCU "Software\ai.ito.ito-local"
+
+  ; ------------------------------------------------------------------
+  ; URL protocol handlers registered by electron-builder for deep links
+  ;   electron-builder.config.js → protocols.schemes: ['ito'] / ['ito-dev']
+  ;   Registered under HKCU\Software\Classes\{scheme}
+  ; ------------------------------------------------------------------
+  DeleteRegKey HKCU "Software\Classes\ito"
+  DeleteRegKey HKCU "Software\Classes\ito-dev"
+  DeleteRegKey HKCU "Software\Classes\ito-local"
+
+  ; ------------------------------------------------------------------
+  ; Add/Remove Programs uninstall entries (belt-and-suspenders)
+  ; ------------------------------------------------------------------
+  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ai.ito.ito"
+  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ai.ito.ito-dev"
+  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ai.ito.ito-local"
 !macroend
