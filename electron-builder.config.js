@@ -125,5 +125,6 @@ module.exports = {
     allowElevation: true,
     deleteAppDataOnUninstall: true,
     runAfterFinish: true,
+    include: 'resources/installer.nsh',
   },
 }
