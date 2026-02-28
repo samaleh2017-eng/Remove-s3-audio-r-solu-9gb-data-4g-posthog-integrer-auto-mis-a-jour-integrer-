@@ -1,14 +1,25 @@
 use active_win_pos_rs::ActiveWindow;
 use serde_json::json;
+use std::io::{self, BufRead, Write};
+use std::sync::Mutex;
+use std::thread;
+
+static LAST_WINDOW_ID: Mutex<Option<String>> = Mutex::new(None);
 
 fn main() {
-    let with_icon = std::env::args().any(|arg| arg == "--with-icon");
+    let args: Vec<String> = std::env::args().collect();
+    let with_icon = args.iter().any(|a| a == "--with-icon");
+    let watch_mode = args.iter().any(|a| a == "--watch");
 
-    match active_win_pos_rs::get_active_window() {
-        Ok(active_window) => output_result(active_window, with_icon),
-        Err(e) => {
-            eprintln!("{}", json!({ "error": e }));
-            std::process::exit(1);
+    if watch_mode {
+        run_watch_mode();
+    } else {
+        match active_win_pos_rs::get_active_window() {
+            Ok(active_window) => output_result(active_window, with_icon),
+            Err(e) => {
+                eprintln!("{}", json!({ "error": e }));
+                std::process::exit(1);
+            }
         }
     }
 }
@@ -43,6 +54,259 @@ fn output_result(active_window: ActiveWindow, with_icon: bool) {
 
     println!("{}", event_json);
 }
+
+// ──────────────────────────────────────────────
+// Watch mode (daemon) — shared helpers
+// ──────────────────────────────────────────────
+
+fn emit_current_window() {
+    match active_win_pos_rs::get_active_window() {
+        Ok(w) => emit_window_event(&w),
+        Err(e) => eprintln!("[watch] Failed to get active window: {:?}", e),
+    }
+}
+
+fn emit_window_event(active_window: &ActiveWindow) {
+    let window_id = format!("{}-{}", active_window.process_id, active_window.window_id);
+
+    {
+        let mut last = LAST_WINDOW_ID.lock().unwrap();
+        if last.as_deref() == Some(&window_id) {
+            return;
+        }
+        *last = Some(window_id);
+    }
+
+    let app_name = resolve_app_name(active_window);
+    let mut event = json!({
+        "type": "window_changed",
+        "title": active_window.title,
+        "appName": app_name,
+        "windowId": active_window.window_id,
+        "processId": active_window.process_id,
+        "position": {
+            "x": active_window.position.x,
+            "y": active_window.position.y,
+            "width": active_window.position.width,
+            "height": active_window.position.height,
+        },
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+    });
+
+    if let Some(bundle_id) = get_bundle_identifier(active_window.process_id) {
+        event["bundleId"] = json!(bundle_id);
+    }
+    if let Some(exe_path) = get_executable_path(active_window.process_id) {
+        event["exePath"] = json!(exe_path);
+    }
+
+    println!("{}", event);
+    io::stdout().flush().unwrap_or(());
+}
+
+fn spawn_heartbeat_thread() {
+    thread::spawn(|| {
+        let mut id = 0u64;
+        loop {
+            thread::sleep(std::time::Duration::from_secs(10));
+            id += 1;
+            println!(
+                "{}",
+                json!({
+                    "type": "heartbeat_ping",
+                    "id": id.to_string(),
+                    "timestamp": chrono::Utc::now().to_rfc3339()
+                })
+            );
+            io::stdout().flush().unwrap_or(());
+        }
+    });
+}
+
+fn spawn_stdin_reader() {
+    thread::spawn(|| {
+        let stdin = io::stdin();
+        for line in stdin.lock().lines().map_while(Result::ok) {
+            if let Ok(cmd) = serde_json::from_str::<serde_json::Value>(&line) {
+                if cmd["command"] == "get_icon" {
+                    let request_id = cmd["requestId"].as_str().unwrap_or("unknown");
+                    handle_icon_request(request_id);
+                }
+            }
+        }
+    });
+}
+
+fn handle_icon_request(request_id: &str) {
+    match active_win_pos_rs::get_active_window() {
+        Ok(w) => {
+            let app_name = resolve_app_name(&w);
+            let icon = get_app_icon_base64(&app_name, w.process_id);
+            let response = json!({
+                "type": "icon_response",
+                "requestId": request_id,
+                "appName": app_name,
+                "iconBase64": icon,
+            });
+            println!("{}", response);
+            io::stdout().flush().unwrap_or(());
+        }
+        Err(e) => {
+            let response = json!({
+                "type": "icon_response",
+                "requestId": request_id,
+                "appName": null,
+                "iconBase64": null,
+                "error": format!("{:?}", e),
+            });
+            println!("{}", response);
+            io::stdout().flush().unwrap_or(());
+        }
+    }
+}
+
+// ──────────────────────────────────────────────
+// Platform-specific watch mode implementations
+// ──────────────────────────────────────────────
+
+#[cfg(target_os = "macos")]
+fn run_watch_mode() {
+    let _activity = prevent_app_nap();
+    spawn_stdin_reader();
+    spawn_heartbeat_thread();
+    emit_current_window();
+
+    unsafe {
+        use cocoa::base::{id, nil};
+        use cocoa::foundation::NSString;
+        use objc::declare::ClassDecl;
+        use objc::runtime::{Class, Object, Sel};
+        use objc::{msg_send, sel, sel_impl};
+
+        extern "C" fn handle_notification(_this: &Object, _cmd: Sel, _notification: id) {
+            match active_win_pos_rs::get_active_window() {
+                Ok(w) => emit_window_event(&w),
+                Err(e) => eprintln!("[watch] Notification handler error: {:?}", e),
+            }
+        }
+
+        let superclass = Class::get("NSObject").unwrap();
+        let mut decl = ClassDecl::new("ActiveWindowObserver", superclass).unwrap();
+        decl.add_method(
+            sel!(handleNotification:),
+            handle_notification as extern "C" fn(&Object, Sel, id),
+        );
+        let observer_class = decl.register();
+
+        let observer: id = msg_send![observer_class, new];
+
+        let workspace: id = msg_send![Class::get("NSWorkspace").unwrap(), sharedWorkspace];
+        let center: id = msg_send![workspace, notificationCenter];
+
+        let notification_name =
+            NSString::alloc(nil).init_str("NSWorkspaceDidActivateApplicationNotification");
+
+        let _: () = msg_send![center,
+            addObserver: observer
+            selector: sel!(handleNotification:)
+            name: notification_name
+            object: nil
+        ];
+
+        core_foundation::runloop::CFRunLoop::run_current();
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn run_watch_mode() {
+    spawn_stdin_reader();
+    spawn_heartbeat_thread();
+    emit_current_window();
+
+    unsafe {
+        use windows::Win32::Foundation::HWND;
+        use windows::Win32::UI::Accessibility::{SetWinEventHook, HWINEVENTHOOK};
+        use windows::Win32::UI::WindowsAndMessaging::{
+            DispatchMessageW, GetMessageW, TranslateMessage, MSG,
+            EVENT_SYSTEM_FOREGROUND, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS,
+        };
+
+        unsafe extern "system" fn win_event_callback(
+            _hook: HWINEVENTHOOK,
+            _event: u32,
+            _hwnd: HWND,
+            _id_object: i32,
+            _id_child: i32,
+            _event_thread: u32,
+            _event_time: u32,
+        ) {
+            match active_win_pos_rs::get_active_window() {
+                Ok(w) => emit_window_event(&w),
+                Err(e) => eprintln!("[watch] WinEvent callback error: {:?}", e),
+            }
+        }
+
+        let _hook = SetWinEventHook(
+            EVENT_SYSTEM_FOREGROUND,
+            EVENT_SYSTEM_FOREGROUND,
+            None,
+            Some(win_event_callback),
+            0,
+            0,
+            WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS,
+        );
+
+        let mut msg = MSG::default();
+        while GetMessageW(&mut msg, None, 0, 0).as_bool() {
+            let _ = TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn run_watch_mode() {
+    spawn_stdin_reader();
+    spawn_heartbeat_thread();
+
+    let mut last_window_id: Option<String> = None;
+    loop {
+        if let Ok(w) = active_win_pos_rs::get_active_window() {
+            let current_id = format!("{}-{}", w.process_id, w.window_id);
+            if last_window_id.as_deref() != Some(&current_id) {
+                last_window_id = Some(current_id);
+                emit_window_event(&w);
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+}
+
+// ──────────────────────────────────────────────
+// macOS App Nap prevention (same pattern as global-key-listener)
+// ──────────────────────────────────────────────
+
+#[cfg(target_os = "macos")]
+fn prevent_app_nap() -> cocoa::base::id {
+    use cocoa::base::{id, nil};
+    use cocoa::foundation::{NSProcessInfo, NSString};
+    use objc::{msg_send, sel, sel_impl};
+
+    unsafe {
+        let process_info = NSProcessInfo::processInfo(nil);
+        let reason = NSString::alloc(nil)
+            .init_str("Active window monitoring requires continuous operation");
+        let options: u64 = 0x00FFFFFF; // NSActivityUserInitiated
+        let activity: id =
+            msg_send![process_info, beginActivityWithOptions:options reason:reason];
+        eprintln!("macOS App Nap prevention enabled for active-application daemon");
+        activity
+    }
+}
+
+// ──────────────────────────────────────────────
+// Shared helpers (unchanged from one-shot mode)
+// ──────────────────────────────────────────────
 
 fn resolve_app_name(active_window: &ActiveWindow) -> String {
     let app_name = active_window.app_name.trim();

@@ -30,6 +30,7 @@ import { validateStoredTokens, ensureValidTokens } from '../auth/events'
 import { createAppTray } from './tray'
 import { initializeAutoUpdater } from './autoUpdaterWrapper'
 import { teardown } from './teardown'
+import { activeWindowMonitor } from './ActiveWindowMonitor'
 import { ITO_ENV } from './env'
 import {
   startServerKeepAlive,
@@ -151,6 +152,8 @@ app.whenReady().then(async () => {
   createAppWindow()
   createPillWindow()
   startPillPositioner()
+
+  activeWindowMonitor.start()
 
   // Handle protocol URL if the app was started by a deep link (Windows first instance)
   processStartupProtocolUrl()

@@ -6,23 +6,20 @@ import {
   ProcessingStatePayload,
 } from '../types/ipc'
 import { getActiveWindowWithIcon } from '../media/active-application'
+import type { ActiveWindowWithIcon } from '../media/active-application'
 import { getBrowserUrl } from '../media/browser-url'
 import { persistentContextDetector } from './context/PersistentContextDetector'
 import { AppTargetTable } from './sqlite/appTargetRepo'
 import { getCurrentUserId } from './store'
 import { normalizeAppTargetId } from '../utils/appTargetUtils'
 import { fetchFavicon } from './faviconFetcher'
+import { activeWindowMonitor } from './ActiveWindowMonitor'
 
 const DEFAULT_LOCAL_USER_ID = 'local-user'
-const DETECTION_TIMEOUT_MS = 200
+const DETECTION_TIMEOUT_MS = 800
 
-/** Timeout for getBrowserUrl() to prevent slow URL detection from blocking the Pill */
-const BROWSER_URL_TIMEOUT_MS = 200
+const BROWSER_URL_TIMEOUT_MS = 500
 
-/**
- * Known browser process names (lowercase). Used to detect when the active app is a web browser.
- * Must match the app names returned by the native active-application binary on both macOS and Windows.
- */
 const KNOWN_BROWSERS = new Set([
   'google chrome',
   'chrome',
@@ -44,13 +41,6 @@ const KNOWN_BROWSERS = new Set([
   'thorium',
 ])
 
-/**
- * Browser "home" domains (NORMALIZED — no www. prefix).
- * When a browser is on one of these, treat it as "browser app" not "website".
- * The user should see the browser icon + name, not the domain.
- *
- * All domains here are WITHOUT www. because normalizeDomain() strips it before checking.
- */
 const BROWSER_HOME_DOMAINS = new Set([
   'google.com',
   'bing.com',
@@ -60,8 +50,20 @@ const BROWSER_HOME_DOMAINS = new Set([
   'startpage.com',
 ])
 
+const BLOCKED_APPS = new Set([
+  'electron',
+  'ito',
+  'ito-dev',
+  'explorer',
+  'finder',
+  'desktop',
+  'shell',
+])
+
 export class RecordingStateNotifier {
   private generation = 0
+  private isCurrentlyRecording = false
+  private windowChangeHandler: ((window: any) => void) | null = null
 
   public notifyRecordingStarted(
     mode: ItoMode,
@@ -69,32 +71,57 @@ export class RecordingStateNotifier {
     screenThumbnailBase64?: string | null,
   ) {
     const gen = ++this.generation
+    const isNewRecording = !this.isCurrentlyRecording
+    this.isCurrentlyRecording = true
 
-    this.resolveAppTargetWithIcon()
-      .then(result => {
-        if (gen !== this.generation) return
-        this.sendToWindows(IPC_EVENTS.RECORDING_STATE_UPDATE, {
-          isRecording: true,
-          mode,
-          appTargetName: result?.name ?? undefined,
-          appTargetIconBase64: result?.iconBase64 ?? undefined,
-          contextSource: contextSource ?? undefined,
-          screenThumbnailBase64: screenThumbnailBase64 ?? undefined,
-        })
+    if (isNewRecording) {
+      const cached = activeWindowMonitor.getCachedState()
+      let immediateName: string | null = null
+
+      if (cached?.window?.appName) {
+        const lowerName = cached.window.appName.toLowerCase()
+        if (!BLOCKED_APPS.has(lowerName)) {
+          immediateName = cached.window.appName
+        }
+      }
+
+      this.sendToWindows(IPC_EVENTS.RECORDING_STATE_UPDATE, {
+        isRecording: true,
+        mode,
+        appTargetName: immediateName,
+        appTargetIconBase64: null,
+        contextSource: contextSource ?? undefined,
+        screenThumbnailBase64: screenThumbnailBase64 ?? undefined,
       })
-      .catch(() => {
-        if (gen !== this.generation) return
-        this.sendToWindows(IPC_EVENTS.RECORDING_STATE_UPDATE, {
-          isRecording: true,
-          mode,
-          contextSource: contextSource ?? undefined,
-          screenThumbnailBase64: screenThumbnailBase64 ?? undefined,
+
+      this.resolveAppTargetWithIcon()
+        .then(result => {
+          if (gen !== this.generation) return
+          if (!result) return
+          this.sendToWindows(IPC_EVENTS.RECORDING_STATE_UPDATE, {
+            isRecording: true,
+            mode,
+            appTargetName: result.name,
+            appTargetIconBase64: result.iconBase64 ?? null,
+          })
         })
+        .catch(() => {})
+
+      this.setupWindowChangeListener(gen, mode)
+    } else {
+      this.sendToWindows(IPC_EVENTS.RECORDING_STATE_UPDATE, {
+        isRecording: true,
+        mode,
+        contextSource: contextSource ?? undefined,
+        screenThumbnailBase64: screenThumbnailBase64 ?? undefined,
       })
+    }
   }
 
   public notifyRecordingStopped() {
     ++this.generation
+    this.isCurrentlyRecording = false
+    this.teardownWindowChangeListener()
     this.sendToWindows(IPC_EVENTS.RECORDING_STATE_UPDATE, {
       isRecording: false,
     })
@@ -110,6 +137,39 @@ export class RecordingStateNotifier {
     this.sendToWindows(IPC_EVENTS.PROCESSING_STATE_UPDATE, {
       isProcessing: false,
     })
+  }
+
+  private setupWindowChangeListener(gen: number, mode: ItoMode): void {
+    this.teardownWindowChangeListener()
+
+    this.windowChangeHandler = async () => {
+      if (gen !== this.generation) {
+        this.teardownWindowChangeListener()
+        return
+      }
+
+      await new Promise(r => setTimeout(r, 150))
+
+      const result = await this.resolveAppTargetWithIcon()
+      if (gen !== this.generation) return
+      if (!result) return
+
+      this.sendToWindows(IPC_EVENTS.RECORDING_STATE_UPDATE, {
+        isRecording: true,
+        mode,
+        appTargetName: result.name,
+        appTargetIconBase64: result.iconBase64 ?? null,
+      })
+    }
+
+    activeWindowMonitor.on('window-changed', this.windowChangeHandler)
+  }
+
+  private teardownWindowChangeListener(): void {
+    if (this.windowChangeHandler) {
+      activeWindowMonitor.off('window-changed', this.windowChangeHandler)
+      this.windowChangeHandler = null
+    }
   }
 
   private normalizeDomain(domain: string): string {
@@ -128,51 +188,52 @@ export class RecordingStateNotifier {
     name: string
     iconBase64: string | null
   } | null> {
-    // Step 1: Get active window with OS icon (50-100ms typical, 200ms max)
-    const windowPromise = getActiveWindowWithIcon()
-    const windowTimeout = new Promise<null>(resolve =>
-      setTimeout(() => resolve(null), DETECTION_TIMEOUT_MS),
-    )
-    const window = await Promise.race([windowPromise, windowTimeout])
+    let window: ActiveWindowWithIcon | null = null
+
+    const daemonIcon = await activeWindowMonitor.requestIcon()
+    const cached = activeWindowMonitor.getCachedState()
+
+    if (cached?.window && daemonIcon !== undefined) {
+      window = {
+        ...cached.window,
+        iconBase64: daemonIcon,
+      }
+    } else {
+      const windowPromise = getActiveWindowWithIcon()
+      const windowTimeout = new Promise<null>(resolve =>
+        setTimeout(() => resolve(null), DETECTION_TIMEOUT_MS),
+      )
+      window = await Promise.race([windowPromise, windowTimeout])
+    }
 
     if (!window?.appName) return null
 
-    // Step 2: Filter blocked system processes
     const lowerName = window.appName.toLowerCase()
-    const blockedApps = new Set([
-      'electron',
-      'ito',
-      'ito-dev',
-      'explorer',
-      'finder',
-      'desktop',
-      'shell',
-    ])
-    if (blockedApps.has(lowerName)) {
+    if (BLOCKED_APPS.has(lowerName)) {
       return null
     }
 
-    // Step 3: Detect browser URL and domain (with safety timeout)
-    const browserInfoPromise = getBrowserUrl(window)
-    const browserUrlTimeout = new Promise<{ url: null; domain: null; browser: null }>(resolve =>
-      setTimeout(() => resolve({ url: null, domain: null, browser: null }), BROWSER_URL_TIMEOUT_MS),
-    )
-    const browserInfo = await Promise.race([browserInfoPromise, browserUrlTimeout])
+    let browserInfo: { url: string | null; domain: string | null; browser: string | null }
 
-    // Step 4: SMART BROWSER/WEBSITE DIFFERENTIATION
+    const cachedForUrl = activeWindowMonitor.getCachedState()
+    if (cachedForUrl?.browserInfo && (Date.now() - cachedForUrl.timestamp) < 2000) {
+      browserInfo = cachedForUrl.browserInfo
+    } else {
+      const browserInfoPromise = getBrowserUrl(window)
+      const browserUrlTimeout = new Promise<{ url: null; domain: null; browser: null }>(resolve =>
+        setTimeout(() => resolve({ url: null, domain: null, browser: null }), BROWSER_URL_TIMEOUT_MS),
+      )
+      browserInfo = await Promise.race([browserInfoPromise, browserUrlTimeout])
+    }
+
     const isBrowser = this.isBrowserApp(window.appName)
     const hasDomain = !!browserInfo.domain
     const isRealWebsite = hasDomain && !this.isBrowserHomeDomain(browserInfo.domain!)
 
     if (isBrowser && isRealWebsite) {
-      // ── BROWSER ON A REAL WEBSITE ──
-      // Skip resolveForWindow() to avoid matching the browser's bundle_id/exe_path.
-      // Do direct domain lookup instead.
       return this.resolveDomainTarget(browserInfo.domain!, window)
     }
 
-    // ── BROWSER ON HOME PAGE / EMPTY TAB, OR NON-BROWSER APP ──
-    // Use existing flow: check PersistentContextDetector for registered targets
     const resolved = await persistentContextDetector.resolveForWindow(
       window,
       browserInfo.domain,
@@ -185,7 +246,6 @@ export class RecordingStateNotifier {
       }
     }
 
-    // No registered target → auto-register the app (not domain) for future lookups
     this.autoRegisterApp(window, browserInfo.domain).catch(err => {
       console.warn('[RecordingStateNotifier] Auto-register failed:', err)
     })
@@ -203,7 +263,6 @@ export class RecordingStateNotifier {
     const userId = getCurrentUserId() || DEFAULT_LOCAL_USER_ID
     const domain = this.normalizeDomain(rawDomain)
 
-    // Check for existing domain target in the database (using NORMALIZED domain)
     const existingTarget = await AppTargetTable.findByDomain(domain, userId)
 
     if (existingTarget) {
@@ -214,7 +273,6 @@ export class RecordingStateNotifier {
         }
       }
 
-      // Domain registered but no favicon yet → return with browser icon, re-fetch in background
       this.fetchAndUpdateFavicon(existingTarget.id, domain).catch(err => {
         console.warn('[RecordingStateNotifier] Favicon re-fetch failed:', err)
       })
@@ -225,7 +283,6 @@ export class RecordingStateNotifier {
       }
     }
 
-    // No domain target exists → auto-register in background (with favicon fetch)
     this.autoRegisterDomainTarget(domain, window).catch(err => {
       console.warn('[RecordingStateNotifier] Auto-register domain failed:', err)
     })

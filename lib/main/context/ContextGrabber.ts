@@ -17,6 +17,7 @@ import log from 'electron-log'
 import { persistentContextDetector } from './PersistentContextDetector'
 import { captureScreen, CaptureMode } from '../../media/screenCapture'
 import { STORE_KEYS } from '../../constants/store-keys'
+import { activeWindowMonitor } from '../ActiveWindowMonitor'
 
 const DEFAULT_LOCAL_USER_ID = 'local-user'
 import { timingCollector, TimingEventName } from '../timing/TimingCollector'
@@ -71,6 +72,10 @@ export class ContextGrabber {
     const activeWindow = await timingCollector.timeAsync(
       TimingEventName.WINDOW_CONTEXT_GATHER,
       async () => {
+        const cached = activeWindowMonitor.getCachedState()
+        if (cached && (Date.now() - cached.timestamp) < 1500) {
+          return cached.window
+        }
         try {
           return await getActiveWindow()
         } catch (error) {
@@ -84,7 +89,13 @@ export class ContextGrabber {
     const { url: browserUrl, domain: browserDomain } =
       await timingCollector.timeAsync(
         TimingEventName.BROWSER_URL_GATHER,
-        async () => await getBrowserUrl(activeWindow),
+        async () => {
+          const cached = activeWindowMonitor.getCachedState()
+          if (cached?.browserInfo && (Date.now() - cached.timestamp) < 1500) {
+            return cached.browserInfo
+          }
+          return await getBrowserUrl(activeWindow)
+        },
       )
 
     let contextText = ''

@@ -1,0 +1,277 @@
+import { spawn, ChildProcess } from 'child_process'
+import { EventEmitter } from 'events'
+import { getNativeBinaryPath } from '../media/native-interface'
+import type { ActiveWindow } from '../media/active-application'
+import { getBrowserUrl, type BrowserUrlInfo } from '../media/browser-url'
+
+const NATIVE_MODULE_NAME = 'active-application'
+const HEARTBEAT_CHECK_INTERVAL_MS = 5000
+const HEARTBEAT_TIMEOUT_MS = 15000
+const MAX_RESTART_ATTEMPTS = 5
+const RESTART_BACKOFF_BASE_MS = 1000
+
+interface WindowChangedEvent {
+  type: 'window_changed'
+  title: string
+  appName: string
+  windowId: number
+  processId: number
+  position: { x: number; y: number; width: number; height: number }
+  bundleId?: string | null
+  exePath?: string | null
+  timestamp: string
+}
+
+interface IconResponseEvent {
+  type: 'icon_response'
+  requestId: string
+  appName: string | null
+  iconBase64: string | null
+  error?: string
+}
+
+interface HeartbeatEvent {
+  type: 'heartbeat_ping'
+  id: string
+  timestamp: string
+}
+
+type DaemonEvent = WindowChangedEvent | IconResponseEvent | HeartbeatEvent
+
+export interface CachedWindowState {
+  window: ActiveWindow
+  browserInfo: BrowserUrlInfo | null
+  timestamp: number
+}
+
+export class ActiveWindowMonitor extends EventEmitter {
+  private process: ChildProcess | null = null
+  private cachedState: CachedWindowState | null = null
+  private lastHeartbeat = Date.now()
+  private heartbeatTimer: NodeJS.Timeout | null = null
+  private pendingIconCallbacks = new Map<string, (icon: string | null) => void>()
+  private iconRequestCounter = 0
+  private isStopped = false
+  private restartAttempts = 0
+  private pendingBrowserUrlWindow: ActiveWindow | null = null
+  private isBrowserUrlFetching = false
+
+  public start(): void {
+    if (this.process) return
+    this.isStopped = false
+    this.restartAttempts = 0
+
+    const binaryPath = getNativeBinaryPath(NATIVE_MODULE_NAME)
+    if (!binaryPath) {
+      console.error('[ActiveWindowMonitor] Cannot find active-application binary')
+      return
+    }
+
+    try {
+      this.process = spawn(binaryPath, ['--watch'], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: {
+          ...process.env,
+          RUST_BACKTRACE: '1',
+          OBJC_DISABLE_INITIALIZE_FORK_SAFETY: 'YES',
+        },
+        detached: true,
+      })
+
+      this.process.unref()
+
+      let buffer = ''
+      this.process.stdout?.on('data', (data: Buffer) => {
+        buffer += data.toString()
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+        for (const line of lines) {
+          if (line.trim()) {
+            try {
+              const event: DaemonEvent = JSON.parse(line)
+              this.handleEvent(event)
+            } catch (e) {
+              console.error('[ActiveWindowMonitor] Failed to parse:', line, e)
+            }
+          }
+        }
+      })
+
+      this.process.stderr?.on('data', (data: Buffer) => {
+        console.warn('[ActiveWindowMonitor] stderr:', data.toString())
+      })
+
+      this.process.on('error', (err) => {
+        console.error('[ActiveWindowMonitor] Process error:', err)
+        this.process = null
+      })
+
+      this.process.on('close', (code, signal) => {
+        console.warn(`[ActiveWindowMonitor] Process closed (code=${code}, signal=${signal})`)
+        this.process = null
+
+        if (!this.isStopped && this.restartAttempts < MAX_RESTART_ATTEMPTS) {
+          this.restartAttempts++
+          const delay = RESTART_BACKOFF_BASE_MS * Math.pow(2, this.restartAttempts - 1)
+          console.log(`[ActiveWindowMonitor] Restarting in ${delay}ms (attempt ${this.restartAttempts}/${MAX_RESTART_ATTEMPTS})`)
+          setTimeout(() => this.start(), delay)
+        } else if (this.restartAttempts >= MAX_RESTART_ATTEMPTS) {
+          console.error('[ActiveWindowMonitor] Max restart attempts reached, giving up')
+        }
+      })
+
+      this.startHeartbeatChecker()
+      console.log('[ActiveWindowMonitor] Daemon started')
+    } catch (err) {
+      console.error('[ActiveWindowMonitor] Failed to spawn:', err)
+      this.process = null
+    }
+  }
+
+  public stop(): void {
+    this.isStopped = true
+    this.stopHeartbeatChecker()
+    if (this.process) {
+      this.process.kill()
+      this.process = null
+    }
+  }
+
+  public getCachedState(): CachedWindowState | null {
+    if (!this.cachedState) return null
+    const age = Date.now() - this.cachedState.timestamp
+    if (age > 3000) return null
+    return this.cachedState
+  }
+
+  public requestIcon(): Promise<string | null> {
+    return new Promise((resolve) => {
+      if (!this.process?.stdin?.writable) {
+        resolve(null)
+        return
+      }
+
+      const requestId = `icon-${++this.iconRequestCounter}`
+      const timeout = setTimeout(() => {
+        this.pendingIconCallbacks.delete(requestId)
+        resolve(null)
+      }, 800)
+
+      this.pendingIconCallbacks.set(requestId, (icon) => {
+        clearTimeout(timeout)
+        resolve(icon)
+      })
+
+      try {
+        this.process.stdin.write(
+          JSON.stringify({ command: 'get_icon', requestId }) + '\n'
+        )
+      } catch (err) {
+        console.warn('[ActiveWindowMonitor] Failed to write to stdin:', err)
+        clearTimeout(timeout)
+        this.pendingIconCallbacks.delete(requestId)
+        resolve(null)
+      }
+    })
+  }
+
+  private handleEvent(event: DaemonEvent): void {
+    if (event.type === 'heartbeat_ping') {
+      this.lastHeartbeat = Date.now()
+      this.restartAttempts = 0
+      return
+    }
+
+    if (event.type === 'icon_response') {
+      const callback = this.pendingIconCallbacks.get(event.requestId)
+      if (callback) {
+        this.pendingIconCallbacks.delete(event.requestId)
+        callback(event.iconBase64 || null)
+      }
+      return
+    }
+
+    if (event.type === 'window_changed') {
+      const window: ActiveWindow = {
+        title: event.title,
+        appName: event.appName,
+        windowId: event.windowId,
+        processId: event.processId,
+        positon: event.position,
+        bundleId: event.bundleId,
+        exePath: event.exePath,
+      }
+
+      this.cachedState = {
+        window,
+        browserInfo: this.cachedState?.browserInfo ?? null,
+        timestamp: Date.now(),
+      }
+
+      this.scheduleBrowserUrlFetch(window)
+
+      this.emit('window-changed', window)
+    }
+  }
+
+  private scheduleBrowserUrlFetch(window: ActiveWindow): void {
+    if (this.isBrowserUrlFetching) {
+      this.pendingBrowserUrlWindow = window
+      return
+    }
+    this.executeBrowserUrlFetch(window)
+  }
+
+  private async executeBrowserUrlFetch(window: ActiveWindow): Promise<void> {
+    this.isBrowserUrlFetching = true
+    try {
+      const browserInfo = await getBrowserUrl(window)
+      if (this.cachedState?.window?.windowId === window.windowId) {
+        this.cachedState = {
+          window: this.cachedState.window,
+          browserInfo,
+          timestamp: Date.now(),
+        }
+      }
+    } catch {
+      if (this.cachedState?.window?.windowId === window.windowId) {
+        this.cachedState = {
+          window: this.cachedState.window,
+          browserInfo: { url: null, domain: null, browser: null },
+          timestamp: Date.now(),
+        }
+      }
+    } finally {
+      this.isBrowserUrlFetching = false
+
+      if (this.pendingBrowserUrlWindow) {
+        const next = this.pendingBrowserUrlWindow
+        this.pendingBrowserUrlWindow = null
+        this.executeBrowserUrlFetch(next)
+      }
+    }
+  }
+
+  private startHeartbeatChecker(): void {
+    this.lastHeartbeat = Date.now()
+    this.heartbeatTimer = setInterval(() => {
+      if (Date.now() - this.lastHeartbeat > HEARTBEAT_TIMEOUT_MS) {
+        console.warn('[ActiveWindowMonitor] Heartbeat timeout, restarting...')
+        this.stopHeartbeatChecker()
+        if (this.process) {
+          this.process.kill()
+          this.process = null
+        }
+      }
+    }, HEARTBEAT_CHECK_INTERVAL_MS)
+  }
+
+  private stopHeartbeatChecker(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer)
+      this.heartbeatTimer = null
+    }
+  }
+}
+
+export const activeWindowMonitor = new ActiveWindowMonitor()

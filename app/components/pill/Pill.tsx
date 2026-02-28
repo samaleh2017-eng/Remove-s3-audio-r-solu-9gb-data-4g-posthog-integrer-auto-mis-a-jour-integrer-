@@ -142,11 +142,17 @@ const Pill = () => {
         isRecordingRef.current = state.isRecording
         setIsRecording(state.isRecording)
 
-        if (state.appTargetName || state.appTargetIconBase64) {
-          setAppTarget({
-            name: state.appTargetName || 'Ito',
-            iconBase64: state.appTargetIconBase64 || null,
-          } as AppTarget)
+        if (state.isRecording) {
+          if (state.appTargetName !== undefined || state.appTargetIconBase64 !== undefined) {
+            setAppTarget(prev => ({
+              name: state.appTargetName ?? prev?.name ?? 'Ito',
+              iconBase64: state.appTargetIconBase64 !== undefined
+                ? (state.appTargetIconBase64 ?? null)
+                : (prev?.iconBase64 ?? null),
+            } as AppTarget))
+          } else if (!wasRecording) {
+            setAppTarget(null)
+          }
         }
 
         if (state.contextSource) {
