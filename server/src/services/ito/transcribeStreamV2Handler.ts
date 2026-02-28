@@ -443,14 +443,23 @@ export class TranscribeStreamV2Handler {
       const { geminiClient } = await import('../../clients/geminiClient.js')
 
       if (geminiClient && typeof geminiClient.analyzeScreenContext === 'function') {
-        const userPrompt = createUserPromptWithContext(transcript, windowContext)
+        const contextParts = [
+          windowContext.userDetailsContext && `INFORMATIONS UTILISATEUR:\n${windowContext.userDetailsContext}`,
+          windowContext.appName && `Application active: ${windowContext.appName}`,
+          windowContext.windowTitle && `Titre de fenêtre: ${windowContext.windowTitle}`,
+          windowContext.browserUrl && `URL: ${windowContext.browserUrl}`,
+        ].filter(Boolean).join('\n')
+
+        const enrichedSystemPrompt = contextParts
+          ? `${systemPrompt}\n\nCONTEXTE ADDITIONNEL:\n${contextParts}`
+          : systemPrompt
 
         const visionResult = await serverTimingCollector.timeAsync(
           ServerTimingEventName.LLM_ADJUSTMENT,
           () => geminiClient.analyzeScreenContext(
             windowContext.screenCaptureBase64,
-            userPrompt,
-            systemPrompt,
+            transcript,
+            enrichedSystemPrompt,
             {
               temperature: advancedSettings.llmTemperature,
               model: 'gemini-2.5-flash',
@@ -458,8 +467,7 @@ export class TranscribeStreamV2Handler {
           ),
         )
 
-        const filteredResult = this.filterLeakedContext(visionResult, windowContext.userDetailsContext)
-        return filteredResult
+        return visionResult.trim()
       }
 
       console.warn('[TranscribeStreamV2] Gemini client not available for vision, falling back to text-only')

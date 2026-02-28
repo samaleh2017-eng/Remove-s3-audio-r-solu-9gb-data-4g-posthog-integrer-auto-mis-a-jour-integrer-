@@ -161,7 +161,10 @@ class GeminiClient implements LlmProvider {
       return response.text?.trim() || ' '
     } catch (error: any) {
       console.error('An error occurred during Gemini screen context analysis:', error)
-      return this.adjustTranscript(voiceCommand, options)
+      return this.adjustTranscript(voiceCommand, {
+        ...options,
+        prompt: systemPrompt,
+      })
     }
   }
 }

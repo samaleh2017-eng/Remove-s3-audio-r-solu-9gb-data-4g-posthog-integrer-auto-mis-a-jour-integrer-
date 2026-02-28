@@ -139,18 +139,32 @@ export const registerSonioxRoutes = async (
         const { geminiClient } = await import('../clients/geminiClient.js')
 
         if (geminiClient && typeof geminiClient.analyzeScreenContext === 'function') {
+          const contextParts = [
+            windowContext.userDetailsContext && `INFORMATIONS UTILISATEUR:\n${windowContext.userDetailsContext}`,
+            windowContext.appName && `Application active: ${windowContext.appName}`,
+            windowContext.windowTitle && `Titre de fenêtre: ${windowContext.windowTitle}`,
+            windowContext.browserUrl && `URL: ${windowContext.browserUrl}`,
+          ].filter(Boolean).join('\n')
+
+          const baseSystemPrompt = hasTonePrompt
+            ? windowContext.tonePrompt
+            : getPromptForMode(mode, advancedSettings)
+
+          const enrichedSystemPrompt = contextParts
+            ? `${baseSystemPrompt}\n\nCONTEXTE ADDITIONNEL:\n${contextParts}`
+            : baseSystemPrompt
+
           const visionResult = await geminiClient.analyzeScreenContext(
             windowContext.screenCaptureBase64,
-            userPrompt,
-            hasTonePrompt ? windowContext.tonePrompt : getPromptForMode(mode, advancedSettings),
+            trimmedTranscript,
+            enrichedSystemPrompt,
             {
               temperature: advancedSettings.llmTemperature,
               model: 'gemini-2.5-flash',
             },
           )
 
-          const filteredResult = filterLeakedContext(visionResult)
-          reply.send({ success: true, transcript: filteredResult })
+          reply.send({ success: true, transcript: visionResult.trim() })
           return
         }
       }

@@ -25,6 +25,7 @@ export const startServer = async () => {
   const connectRpcServer = fastify({
     logger: process.env.SHOW_ALL_REQUEST_LOGS === 'true',
     trustProxy: true,
+    bodyLimit: 10 * 1024 * 1024, // 10 MB — needed for context awareness screenshots
   })
 
   await connectRpcServer.register(cors, { origin: '*' })
