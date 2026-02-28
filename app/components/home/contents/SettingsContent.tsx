@@ -76,7 +76,7 @@ export default function SettingsContent() {
   }
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full min-h-0">
       <div className="w-[260px] flex-shrink-0 flex flex-col justify-between py-6 px-5 border-r border-[#E8E8E8] bg-[#E4E1DE] overflow-y-auto">
         <div>
           <div className="text-xs font-semibold tracking-[1.5px] text-[#999] uppercase mb-3 px-3">
