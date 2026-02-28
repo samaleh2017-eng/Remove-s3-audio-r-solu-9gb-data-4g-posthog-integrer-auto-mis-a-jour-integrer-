@@ -64,7 +64,19 @@ export class RecordingStateNotifier {
   private generation = 0
   private isCurrentlyRecording = false
   private windowChangeHandler: ((window: any) => void) | null = null
+  private static readonly MAX_FAVICON_CACHE_SIZE = 50
   private faviconCache = new Map<string, string>()
+
+  private setFaviconCache(domain: string, icon: string): void {
+    this.faviconCache.delete(domain)
+    this.faviconCache.set(domain, icon)
+    if (this.faviconCache.size > RecordingStateNotifier.MAX_FAVICON_CACHE_SIZE) {
+      const oldestEntry = this.faviconCache.keys().next()
+      if (!oldestEntry.done) {
+        this.faviconCache.delete(oldestEntry.value)
+      }
+    }
+  }
 
   public notifyRecordingStarted(
     mode: ItoMode,
@@ -336,7 +348,7 @@ export class RecordingStateNotifier {
 
     const favicon = await fetchFavicon(domain)
     if (favicon) {
-      this.faviconCache.set(domain, favicon)
+      this.setFaviconCache(domain, favicon)
     }
 
     await AppTargetTable.upsert({
@@ -365,7 +377,7 @@ export class RecordingStateNotifier {
     const favicon = await fetchFavicon(domain)
     if (!favicon) return
 
-    this.faviconCache.set(domain, favicon)
+    this.setFaviconCache(domain, favicon)
 
     const userId = getCurrentUserId() || DEFAULT_LOCAL_USER_ID
     const target = await AppTargetTable.findById(targetId, userId)
