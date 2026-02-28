@@ -136,7 +136,17 @@ export const registerSonioxRoutes = async (
       const userPrompt = createUserPromptWithContext(trimmedTranscript, windowContext)
 
       if (mode === ItoMode.CONTEXT_AWARENESS && windowContext.screenCaptureBase64) {
+        console.log(
+          `[adjust-transcript] CONTEXT_AWARENESS with screenshot (${Math.round(windowContext.screenCaptureBase64.length / 1024)}KB), voice command: "${trimmedTranscript}"`,
+        )
+
         const { geminiClient } = await import('../clients/geminiClient.js')
+
+        if (!geminiClient) {
+          console.error(
+            '[adjust-transcript] CRITICAL: geminiClient is null — GEMINI_API_KEY likely not set. Vision analysis impossible.',
+          )
+        }
 
         if (geminiClient && typeof geminiClient.analyzeScreenContext === 'function') {
           const contextParts = [
@@ -154,19 +164,54 @@ export const registerSonioxRoutes = async (
             ? `${baseSystemPrompt}\n\nCONTEXTE ADDITIONNEL:\n${contextParts}`
             : baseSystemPrompt
 
-          const visionResult = await geminiClient.analyzeScreenContext(
-            windowContext.screenCaptureBase64,
-            trimmedTranscript,
-            enrichedSystemPrompt,
-            {
-              temperature: advancedSettings.llmTemperature,
-              model: 'gemini-2.5-flash',
-            },
-          )
+          const MAX_VISION_RETRIES = 2
+          let lastVisionError: unknown = null
 
-          reply.send({ success: true, transcript: visionResult.trim() })
-          return
+          for (let attempt = 1; attempt <= MAX_VISION_RETRIES; attempt++) {
+            try {
+              console.log(
+                `[adjust-transcript] Gemini Vision attempt ${attempt}/${MAX_VISION_RETRIES}`,
+              )
+
+              const visionResult = await geminiClient.analyzeScreenContext(
+                windowContext.screenCaptureBase64,
+                trimmedTranscript,
+                enrichedSystemPrompt,
+                {
+                  temperature: advancedSettings.llmTemperature,
+                  model: 'gemini-2.5-flash',
+                },
+              )
+
+              console.log(
+                `[adjust-transcript] Vision analysis succeeded on attempt ${attempt}: ${visionResult.length} chars`,
+              )
+              reply.send({ success: true, transcript: visionResult.trim() })
+              return
+            } catch (visionError: any) {
+              lastVisionError = visionError
+              console.error(
+                `[adjust-transcript] Vision attempt ${attempt}/${MAX_VISION_RETRIES} failed:`,
+                visionError?.message || visionError,
+              )
+
+              if (attempt < MAX_VISION_RETRIES) {
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt))
+              }
+            }
+          }
+
+          console.error(
+            `[adjust-transcript] All ${MAX_VISION_RETRIES} vision attempts failed. Last error:`,
+            lastVisionError,
+          )
         }
+
+        console.warn(
+          '[adjust-transcript] CONTEXT_AWARENESS: Vision failed or unavailable, falling through to text-only (degraded mode)',
+        )
+
+        systemPrompt = getPromptForMode(ItoMode.EDIT, advancedSettings)
       }
 
       let finalUserPrompt = userPrompt

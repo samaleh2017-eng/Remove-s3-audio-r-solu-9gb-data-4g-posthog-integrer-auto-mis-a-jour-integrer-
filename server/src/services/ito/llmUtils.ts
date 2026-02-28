@@ -18,7 +18,7 @@ export function applyReplacements(
   return result
 }
 
-export function filterLeakedContext(text: string): string {
+export function filterLeakedContext(text: string, isVisionResponse: boolean = false): string {
   if (!text || !text.trim()) return ''
 
   const markers = [
@@ -36,25 +36,27 @@ export function filterLeakedContext(text: string): string {
     filtered = filtered.split(marker).join('')
   }
 
-  const leakedPatterns = [
-    /^Name:\s*.+$/gm,
-    /^Full\s*name:\s*.+$/gim,
-    /^Occupation:\s*.+$/gim,
-    /^Company:\s*.+$/gm,
-    /^Role:\s*.+$/gm,
-    /^Email:\s*.+$/gm,
-    /^Phone:\s*.+$/gm,
-    /^Address:\s*.+$/gm,
-    /^Website:\s*.+$/gm,
-    /^LinkedIn:\s*.+$/gm,
-    /^Window\s*title:\s*.+$/gim,
-    /^App\s*name:\s*.+$/gim,
-    /^URL:\s*.+$/gm,
-    /^Domain:\s*.+$/gm,
-  ]
+  if (!isVisionResponse) {
+    const leakedPatterns = [
+      /^Name:\s*.+$/gm,
+      /^Full\s*name:\s*.+$/gim,
+      /^Occupation:\s*.+$/gim,
+      /^Company:\s*.+$/gm,
+      /^Role:\s*.+$/gm,
+      /^Email:\s*.+$/gm,
+      /^Phone:\s*.+$/gm,
+      /^Address:\s*.+$/gm,
+      /^Website:\s*.+$/gm,
+      /^LinkedIn:\s*.+$/gm,
+      /^Window\s*title:\s*.+$/gim,
+      /^App\s*name:\s*.+$/gim,
+      /^URL:\s*.+$/gm,
+      /^Domain:\s*.+$/gm,
+    ]
 
-  for (const pattern of leakedPatterns) {
-    filtered = filtered.replace(pattern, '')
+    for (const pattern of leakedPatterns) {
+      filtered = filtered.replace(pattern, '')
+    }
   }
 
   filtered = filtered.trim().replace(/\n{3,}/g, '\n\n')
