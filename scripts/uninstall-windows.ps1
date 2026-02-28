@@ -39,13 +39,34 @@ Write-Step 'Terminating running Ito processes…'
 
 $processNames = @('Ito', 'Ito-dev', 'Ito-local')
 
-foreach ($name in $processNames) {
+# Native Rust helper binaries that may outlive the main Electron process
+$helperNames = @(
+    'global-key-listener',
+    'audio-recorder',
+    'text-writer',
+    'active-application',
+    'selected-text-reader',
+    'browser-url-reader'
+)
+
+foreach ($name in ($processNames + $helperNames)) {
     $procs = Get-Process -Name $name -ErrorAction SilentlyContinue
     if ($procs) {
         $procs | Stop-Process -Force -ErrorAction SilentlyContinue
         Write-Done "Killed: $name ($($procs.Count) instance(s))"
     } else {
         Write-Skip "Not running: $name"
+    }
+}
+
+Start-Sleep -Seconds 3
+
+# Second pass — catch anything that respawned
+foreach ($name in $processNames) {
+    $procs = Get-Process -Name $name -ErrorAction SilentlyContinue
+    if ($procs) {
+        $procs | Stop-Process -Force -ErrorAction SilentlyContinue
+        Write-Done "Killed (pass 2): $name ($($procs.Count) instance(s))"
     }
 }
 
@@ -90,9 +111,11 @@ foreach ($dir in $directories) {
 Write-Step 'Cleaning registry entries…'
 
 $registryKeys = @(
-    # App identity keys
+    # App identity keys — appId + productName for all stages
     'HKCU:\Software\Ito',
     'HKCU:\Software\ito',
+    'HKCU:\Software\Ito-dev',
+    'HKCU:\Software\Ito-local',
     'HKCU:\Software\ai.ito.ito',
     'HKCU:\Software\ai.ito.ito-dev',
     'HKCU:\Software\ai.ito.ito-local',
@@ -101,12 +124,31 @@ $registryKeys = @(
     'HKCU:\Software\Classes\ito',
     'HKCU:\Software\Classes\ito-dev',
     'HKCU:\Software\Classes\ito-local',
-    # Add/Remove Programs uninstall entries
-    'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Ito',
+    # Add/Remove Programs uninstall entries — appId-based (electron-builder default)
     'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\ai.ito.ito',
     'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\ai.ito.ito-dev',
-    'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\ai.ito.ito-local'
+    'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\ai.ito.ito-local',
+    # Add/Remove Programs uninstall entries — productName-based (legacy / fallback)
+    'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Ito',
+    'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Ito-dev',
+    'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Ito-local'
 )
+
+# Auto-start ("Open at Login") — app.setLoginItemSettings() writes a value
+# under HKCU\...\Run whose name is app.getName().
+#   prod = 'ito' (package.json name), dev = 'Ito (dev)', local = 'Ito (local)'
+$runKey      = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+$loginNames  = @('ito', 'Ito', 'Ito (dev)', 'Ito (local)', 'Ito-dev', 'Ito-local')
+
+foreach ($name in $loginNames) {
+    try {
+        $val = Get-ItemProperty -Path $runKey -Name $name -ErrorAction Stop
+        Remove-ItemProperty -Path $runKey -Name $name -Force -ErrorAction Stop
+        Write-Done "Removed auto-start value: $name"
+    } catch {
+        Write-Skip "Auto-start not found: $name"
+    }
+}
 
 foreach ($key in $registryKeys) {
     if (Test-Path $key) {
