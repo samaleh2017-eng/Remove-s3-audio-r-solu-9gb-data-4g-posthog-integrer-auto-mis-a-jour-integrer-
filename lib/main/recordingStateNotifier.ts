@@ -64,6 +64,7 @@ export class RecordingStateNotifier {
   private generation = 0
   private isCurrentlyRecording = false
   private windowChangeHandler: ((window: any) => void) | null = null
+  private faviconCache = new Map<string, string>()
 
   public notifyRecordingStarted(
     mode: ItoMode,
@@ -77,11 +78,19 @@ export class RecordingStateNotifier {
     if (isNewRecording) {
       const cached = activeWindowMonitor.getCachedState()
       let immediateName: string | null = null
+      let immediateIcon: string | null = null
 
       if (cached?.window?.appName) {
         const lowerName = cached.window.appName.toLowerCase()
         if (!BLOCKED_APPS.has(lowerName)) {
           immediateName = cached.window.appName
+
+          immediateIcon = cached.iconBase64 ?? null
+
+          if (!immediateIcon) {
+            const cacheKey = activeWindowMonitor.getIconCacheKeyForWindow(cached.window)
+            immediateIcon = activeWindowMonitor.getCachedIcon(cacheKey)
+          }
         }
       }
 
@@ -89,7 +98,7 @@ export class RecordingStateNotifier {
         isRecording: true,
         mode,
         appTargetName: immediateName,
-        appTargetIconBase64: null,
+        appTargetIconBase64: immediateIcon,
         contextSource: contextSource ?? undefined,
         screenThumbnailBase64: screenThumbnailBase64 ?? undefined,
       })
@@ -98,6 +107,7 @@ export class RecordingStateNotifier {
         .then(result => {
           if (gen !== this.generation) return
           if (!result) return
+          if (result.name === immediateName && (result.iconBase64 ?? null) === immediateIcon) return
           this.sendToWindows(IPC_EVENTS.RECORDING_STATE_UPDATE, {
             isRecording: true,
             mode,
@@ -190,13 +200,26 @@ export class RecordingStateNotifier {
   } | null> {
     let window: ActiveWindowWithIcon | null = null
 
-    const daemonIcon = await activeWindowMonitor.requestIcon()
     const cached = activeWindowMonitor.getCachedState()
 
-    if (cached?.window && daemonIcon !== undefined) {
+    if (cached?.window) {
+      let icon = cached.iconBase64 ?? null
+
+      if (!icon) {
+        const daemonIcon = await activeWindowMonitor.requestIcon()
+        icon = daemonIcon ?? null
+
+        if (icon && cached.window) {
+          const currentCached = activeWindowMonitor.getCachedState()
+          if (currentCached?.window?.windowId === cached.window.windowId) {
+            activeWindowMonitor.storeIcon(cached.window, icon)
+          }
+        }
+      }
+
       window = {
         ...cached.window,
-        iconBase64: daemonIcon,
+        iconBase64: icon,
       }
     } else {
       const windowPromise = getActiveWindowWithIcon()
@@ -273,6 +296,14 @@ export class RecordingStateNotifier {
         }
       }
 
+      const cachedFavicon = this.faviconCache.get(domain)
+      if (cachedFavicon) {
+        return {
+          name: existingTarget.name,
+          iconBase64: cachedFavicon,
+        }
+      }
+
       this.fetchAndUpdateFavicon(existingTarget.id, domain).catch(err => {
         console.warn('[RecordingStateNotifier] Favicon re-fetch failed:', err)
       })
@@ -304,6 +335,9 @@ export class RecordingStateNotifier {
     if (existing) return
 
     const favicon = await fetchFavicon(domain)
+    if (favicon) {
+      this.faviconCache.set(domain, favicon)
+    }
 
     await AppTargetTable.upsert({
       id: appId,
@@ -330,6 +364,8 @@ export class RecordingStateNotifier {
   private async fetchAndUpdateFavicon(targetId: string, domain: string): Promise<void> {
     const favicon = await fetchFavicon(domain)
     if (!favicon) return
+
+    this.faviconCache.set(domain, favicon)
 
     const userId = getCurrentUserId() || DEFAULT_LOCAL_USER_ID
     const target = await AppTargetTable.findById(targetId, userId)

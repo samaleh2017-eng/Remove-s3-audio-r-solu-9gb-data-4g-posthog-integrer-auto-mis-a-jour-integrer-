@@ -41,6 +41,7 @@ type DaemonEvent = WindowChangedEvent | IconResponseEvent | HeartbeatEvent
 export interface CachedWindowState {
   window: ActiveWindow
   browserInfo: BrowserUrlInfo | null
+  iconBase64: string | null
   timestamp: number
 }
 
@@ -55,6 +56,9 @@ export class ActiveWindowMonitor extends EventEmitter {
   private restartAttempts = 0
   private pendingBrowserUrlWindow: ActiveWindow | null = null
   private isBrowserUrlFetching = false
+  private static readonly MAX_ICON_CACHE_SIZE = 50
+  private iconCache = new Map<string, string>()
+  private iconFetchInProgress = new Set<string>()
 
   public start(): void {
     if (this.process) return
@@ -144,6 +148,47 @@ export class ActiveWindowMonitor extends EventEmitter {
     return this.cachedState
   }
 
+  private getIconCacheKey(window: ActiveWindow): string {
+    return window.bundleId || window.exePath || window.appName
+  }
+
+  private setIconCache(key: string, icon: string): void {
+    this.iconCache.delete(key)
+    this.iconCache.set(key, icon)
+    if (this.iconCache.size > ActiveWindowMonitor.MAX_ICON_CACHE_SIZE) {
+      const oldestEntry = this.iconCache.keys().next()
+      if (!oldestEntry.done) {
+        this.iconCache.delete(oldestEntry.value)
+      }
+    }
+  }
+
+  public getCachedIcon(key: string): string | null {
+    const icon = this.iconCache.get(key)
+    if (icon) {
+      this.iconCache.delete(key)
+      this.iconCache.set(key, icon)
+      return icon
+    }
+    return null
+  }
+
+  public getIconCacheKeyForWindow(window: ActiveWindow): string {
+    return this.getIconCacheKey(window)
+  }
+
+  public storeIcon(window: ActiveWindow, icon: string): void {
+    const key = this.getIconCacheKey(window)
+    this.setIconCache(key, icon)
+    if (this.cachedState?.window?.windowId === window.windowId) {
+      this.cachedState = {
+        ...this.cachedState,
+        iconBase64: icon,
+        timestamp: Date.now(),
+      }
+    }
+  }
+
   public requestIcon(): Promise<string | null> {
     return new Promise((resolve) => {
       if (!this.process?.stdin?.writable) {
@@ -202,14 +247,45 @@ export class ActiveWindowMonitor extends EventEmitter {
         exePath: event.exePath,
       }
 
+      const cacheKey = this.getIconCacheKey(window)
+      const cachedIcon = this.iconCache.get(cacheKey) ?? null
+
       this.cachedState = {
         window,
         browserInfo: this.cachedState?.browserInfo ?? null,
+        iconBase64: cachedIcon,
         timestamp: Date.now(),
       }
 
-      this.scheduleBrowserUrlFetch(window)
+      if (!cachedIcon && !this.iconFetchInProgress.has(cacheKey)) {
+        this.iconFetchInProgress.add(cacheKey)
+        this.requestIcon()
+          .then(icon => {
+            if (icon) {
+              const currentKey = this.cachedState?.window
+                ? this.getIconCacheKey(this.cachedState.window)
+                : null
+              if (currentKey !== cacheKey) {
+                return
+              }
 
+              this.setIconCache(cacheKey, icon)
+              if (this.cachedState?.window?.windowId === window.windowId) {
+                this.cachedState = {
+                  ...this.cachedState,
+                  iconBase64: icon,
+                  timestamp: Date.now(),
+                }
+              }
+            }
+          })
+          .catch(() => {})
+          .finally(() => {
+            this.iconFetchInProgress.delete(cacheKey)
+          })
+      }
+
+      this.scheduleBrowserUrlFetch(window)
       this.emit('window-changed', window)
     }
   }
@@ -230,6 +306,7 @@ export class ActiveWindowMonitor extends EventEmitter {
         this.cachedState = {
           window: this.cachedState.window,
           browserInfo,
+          iconBase64: this.cachedState.iconBase64,
           timestamp: Date.now(),
         }
       }
@@ -238,6 +315,7 @@ export class ActiveWindowMonitor extends EventEmitter {
         this.cachedState = {
           window: this.cachedState.window,
           browserInfo: { url: null, domain: null, browser: null },
+          iconBase64: this.cachedState.iconBase64,
           timestamp: Date.now(),
         }
       }
