@@ -82,6 +82,16 @@ export class RecordingStateNotifier {
     }
   }
 
+  private getCachedFavicon(domain: string): string | null {
+    const icon = this.faviconCache.get(domain)
+    if (icon) {
+      this.faviconCache.delete(domain)
+      this.faviconCache.set(domain, icon)
+      return icon
+    }
+    return null
+  }
+
   public notifyRecordingStarted(
     mode: ItoMode,
     contextSource?: 'screen' | 'selection' | null,
@@ -371,7 +381,7 @@ export class RecordingStateNotifier {
         }
       }
 
-      const cachedFavicon = this.faviconCache.get(domain)
+      const cachedFavicon = this.getCachedFavicon(domain)
       if (cachedFavicon) {
         return {
           name: existingTarget.name,
