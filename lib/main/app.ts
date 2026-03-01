@@ -105,8 +105,8 @@ export function createAppWindow(): BrowserWindow {
   return mainWindow
 }
 
-const PILL_MAX_WIDTH = 400
-const PILL_MAX_HEIGHT = 60
+const PILL_MAX_WIDTH = 280
+const PILL_MAX_HEIGHT = 80
 export function createPillWindow(): void {
   pillWindow = new BrowserWindow({
     width: PILL_MAX_WIDTH,
@@ -182,15 +182,15 @@ function updatePillPosition() {
     const { width: pillWidth } = pillWindow.getBounds()
 
     // Use workArea instead of bounds to account for dock/menu bar
-    const { x, y, width } = display.workArea
+    const { x, y, width, height } = display.workArea
 
     const scale = display.scaleFactor || 1
     const roundToDeviceDip = (v: number) =>
       Math.round(Math.round(v * scale) / scale)
 
-    // Horizontally centered, positioned at the TOP of the work area
+    // Horizontally centered, positioned at the BOTTOM of the work area
     const newX = roundToDeviceDip(x + width / 2 - pillWidth / 2)
-    const newY = roundToDeviceDip(y) // Flush with top
+    const newY = roundToDeviceDip(y + height - PILL_MAX_HEIGHT) // Flush with bottom
 
     // Only move if position actually changed (>= 1 DIP)
     const [currX, currY] = pillWindow.getPosition()
