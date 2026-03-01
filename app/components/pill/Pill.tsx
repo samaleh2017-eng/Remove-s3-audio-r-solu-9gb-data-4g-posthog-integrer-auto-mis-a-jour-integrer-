@@ -90,6 +90,7 @@ const Pill = () => {
   const [isRecording, setIsRecording] = useState(false)
   const [isManualRecording, setIsManualRecording] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isAgentMode, setIsAgentMode] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const isManualRecordingRef = useRef(false)
   const [interactionSounds, setInteractionSoundsLocal] = useState(
@@ -205,6 +206,12 @@ const Pill = () => {
       'processing-state-update',
       (state: ProcessingStatePayload) => {
         setIsProcessing(state.isProcessing)
+        if (state.isAgent !== undefined) {
+          setIsAgentMode(state.isAgent)
+        }
+        if (!state.isProcessing) {
+          setIsAgentMode(false)
+        }
       },
     )
 
@@ -405,8 +412,9 @@ const Pill = () => {
     }
 
     if (isProcessing) {
-      const processingLabel =
-        currentMode === ItoMode.CONTEXT_AWARENESS
+      const processingLabel = isAgentMode
+        ? 'Agent...'
+        : currentMode === ItoMode.CONTEXT_AWARENESS
           ? 'Analyzing...'
           : 'Transcribing'
       return <ProcessingStatusDisplay color="white" label={processingLabel} />

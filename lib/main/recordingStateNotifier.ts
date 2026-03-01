@@ -127,9 +127,10 @@ export class RecordingStateNotifier {
     })
   }
 
-  public notifyProcessingStarted() {
+  public notifyProcessingStarted(isAgent?: boolean) {
     this.sendToWindows(IPC_EVENTS.PROCESSING_STATE_UPDATE, {
       isProcessing: true,
+      isAgent,
     })
   }
 

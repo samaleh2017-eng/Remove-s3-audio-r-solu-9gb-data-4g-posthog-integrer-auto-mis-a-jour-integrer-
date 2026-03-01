@@ -24,6 +24,7 @@ export interface RecordingStatePayload {
 export interface ProcessingStatePayload {
   isProcessing: boolean
   mode?: ItoMode
+  isAgent?: boolean
 }
 
 export interface VolumeUpdatePayload {

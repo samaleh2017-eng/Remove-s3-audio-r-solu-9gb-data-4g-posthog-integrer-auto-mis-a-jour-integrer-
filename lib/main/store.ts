@@ -11,6 +11,7 @@ export interface KeyboardShortcutConfig {
   id: string
   keys: KeyName[]
   mode: ItoMode
+  isAgent?: boolean
 }
 
 interface MainStore {
@@ -156,6 +157,12 @@ export const defaultValues: AppStore = {
           normalizeLegacyKey,
         ) as KeyName[],
         mode: ItoMode.CONTEXT_AWARENESS,
+      },
+      {
+        id: crypto.randomUUID(),
+        keys: [],
+        mode: ItoMode.TRANSCRIBE,
+        isAgent: true,
       },
     ],
     firstName: '',

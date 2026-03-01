@@ -4,6 +4,7 @@ import { STORE_KEYS } from '../constants/store-keys'
 import { getNativeBinaryPath } from './native-interface'
 import { BrowserWindow } from 'electron'
 import { itoSessionManager } from '../main/itoSessionManager'
+import { agentSessionManager } from '../main/agent/agentSessionManager'
 import { KeyName, keyNameMap, normalizeLegacyKey } from '../types/keyboard'
 import { ItoMode } from '@/app/generated/ito_pb'
 
@@ -30,6 +31,7 @@ type ProcessEvent = KeyEvent | HeartbeatEvent | RegisteredHotkeysEvent
 // Global key listener process singleton
 export let KeyListenerProcess: ReturnType<typeof spawn> | null = null
 let activeShortcutId: string | null = null
+let activeIsAgent = false
 
 // Heartbeat monitoring state
 let lastHeartbeatReceived = Date.now()
@@ -42,6 +44,7 @@ export const resetForTesting = () => {
   if (process.env.NODE_ENV !== 'production') {
     KeyListenerProcess = null
     activeShortcutId = null
+    activeIsAgent = false
     pressedKeys.clear()
     keyPressTimestamps.clear()
     stopStuckKeyChecker()
@@ -181,12 +184,14 @@ async function handleKeyEventInMain(event: KeyEvent) {
   )
 
   if (!isShortcutGloballyEnabled) {
-    // check to see if we should stop an in-progress recording
     if (activeShortcutId !== null) {
-      // Shortcut released
       activeShortcutId = null
-      console.info('Shortcut DEACTIVATED, stopping recording...')
-      itoSessionManager.completeSession()
+      if (activeIsAgent) {
+        agentSessionManager.completeSession()
+      } else {
+        itoSessionManager.completeSession()
+      }
+      activeIsAgent = false
     }
     return
   }
@@ -231,24 +236,31 @@ async function handleKeyEventInMain(event: KeyEvent) {
     if (activeShortcutId === null) {
       // Starting a new session
       activeShortcutId = currentlyHeldShortcut.id
+      activeIsAgent = !!currentlyHeldShortcut.isAgent
       console.info('lib Shortcut ACTIVATED, starting recording...')
-      await itoSessionManager.startSession(currentlyHeldShortcut.mode)
+      if (activeIsAgent) {
+        await agentSessionManager.startSession()
+      } else {
+        await itoSessionManager.startSession(currentlyHeldShortcut.mode)
+      }
     } else if (activeShortcutId !== currentlyHeldShortcut.id) {
       const currentShortcut = keyboardShortcuts.find(
         ks => ks.id === activeShortcutId,
       )
       const nonSwitchableModes = [ItoMode.TRANSLATE, ItoMode.CONTEXT_AWARENESS]
       if (
+        activeIsAgent || currentlyHeldShortcut.isAgent ||
         nonSwitchableModes.includes(currentShortcut?.mode) ||
         nonSwitchableModes.includes(currentlyHeldShortcut.mode)
       ) {
         console.info(
-          `[keyboard] Cannot switch to/from ${currentlyHeldShortcut.mode} mode mid-session, ignoring`,
+          `[keyboard] Cannot switch to/from agent or restricted mode mid-session`,
         )
         return
       }
       // Different shortcut detected while already recording - change mode
       activeShortcutId = currentlyHeldShortcut.id
+      activeIsAgent = !!currentlyHeldShortcut.isAgent
       console.info(
         `lib Shortcut mode CHANGED to ${currentlyHeldShortcut.mode}, updating session...`,
       )
@@ -260,7 +272,12 @@ async function handleKeyEventInMain(event: KeyEvent) {
       // Shortcut released - deactivate immediately (no debounce on release)
       activeShortcutId = null
       console.info('lib Shortcut DEACTIVATED, stopping recording...')
-      itoSessionManager.completeSession()
+      if (activeIsAgent) {
+        agentSessionManager.completeSession()
+      } else {
+        itoSessionManager.completeSession()
+      }
+      activeIsAgent = false
     }
   }
 }
