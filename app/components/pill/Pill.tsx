@@ -144,13 +144,32 @@ const Pill = () => {
         setIsRecording(state.isRecording)
 
         if (state.isRecording) {
-          if (state.appTargetName !== undefined || state.appTargetIconBase64 !== undefined) {
-            setAppTarget(prev => ({
-              name: state.appTargetName ?? prev?.name ?? 'Ito',
-              iconBase64: state.appTargetIconBase64 !== undefined
-                ? (state.appTargetIconBase64 ?? null)
-                : (prev?.iconBase64 ?? null),
-            } as AppTarget))
+          if (
+            state.appTargetName !== undefined ||
+            state.appTargetIconBase64 !== undefined
+          ) {
+            setAppTarget(prev => {
+              const newName = state.appTargetName ?? prev?.name ?? 'Ito'
+              const incomingIcon =
+                state.appTargetIconBase64 !== undefined
+                  ? (state.appTargetIconBase64 ?? null)
+                  : (prev?.iconBase64 ?? null)
+
+              const newIcon =
+                !incomingIcon && prev?.iconBase64 && newName === prev.name
+                  ? prev.iconBase64
+                  : incomingIcon
+
+              if (
+                prev &&
+                prev.name === newName &&
+                prev.iconBase64 === newIcon
+              ) {
+                return prev
+              }
+
+              return { name: newName, iconBase64: newIcon } as AppTarget
+            })
           } else if (!wasRecording) {
             setAppTarget(null)
           }
@@ -341,6 +360,7 @@ const Pill = () => {
     if (appTarget?.iconBase64) {
       return (
         <img
+          draggable={false}
           src={`data:image/png;base64,${appTarget.iconBase64}`}
           style={{ width: 24, height: 24, borderRadius: 4 }}
         />

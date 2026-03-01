@@ -19,6 +19,7 @@ const DEFAULT_LOCAL_USER_ID = 'local-user'
 const DETECTION_TIMEOUT_MS = 800
 
 const BROWSER_URL_TIMEOUT_MS = 500
+const BROWSER_FIRST_EMIT_TIMEOUT_MS = 350
 
 const KNOWN_BROWSERS = new Set([
   'google chrome',
@@ -64,6 +65,33 @@ export class RecordingStateNotifier {
   private generation = 0
   private isCurrentlyRecording = false
   private windowChangeHandler: ((window: any) => void) | null = null
+  private lastSentAppName: string | null = null
+  private lastSentAppIcon: string | null = null
+  private static readonly MAX_FAVICON_CACHE_SIZE = 50
+  private faviconCache = new Map<string, string>()
+
+  private setFaviconCache(domain: string, icon: string): void {
+    this.faviconCache.delete(domain)
+    this.faviconCache.set(domain, icon)
+    if (
+      this.faviconCache.size > RecordingStateNotifier.MAX_FAVICON_CACHE_SIZE
+    ) {
+      const oldestEntry = this.faviconCache.keys().next()
+      if (!oldestEntry.done) {
+        this.faviconCache.delete(oldestEntry.value)
+      }
+    }
+  }
+
+  private getCachedFavicon(domain: string): string | null {
+    const icon = this.faviconCache.get(domain)
+    if (icon) {
+      this.faviconCache.delete(domain)
+      this.faviconCache.set(domain, icon)
+      return icon
+    }
+    return null
+  }
 
   public notifyRecordingStarted(
     mode: ItoMode,
@@ -75,39 +103,7 @@ export class RecordingStateNotifier {
     this.isCurrentlyRecording = true
 
     if (isNewRecording) {
-      const cached = activeWindowMonitor.getCachedState()
-      let immediateName: string | null = null
-
-      if (cached?.window?.appName) {
-        const lowerName = cached.window.appName.toLowerCase()
-        if (!BLOCKED_APPS.has(lowerName)) {
-          immediateName = cached.window.appName
-        }
-      }
-
-      this.sendToWindows(IPC_EVENTS.RECORDING_STATE_UPDATE, {
-        isRecording: true,
-        mode,
-        appTargetName: immediateName,
-        appTargetIconBase64: null,
-        contextSource: contextSource ?? undefined,
-        screenThumbnailBase64: screenThumbnailBase64 ?? undefined,
-      })
-
-      this.resolveAppTargetWithIcon()
-        .then(result => {
-          if (gen !== this.generation) return
-          if (!result) return
-          this.sendToWindows(IPC_EVENTS.RECORDING_STATE_UPDATE, {
-            isRecording: true,
-            mode,
-            appTargetName: result.name,
-            appTargetIconBase64: result.iconBase64 ?? null,
-          })
-        })
-        .catch(() => {})
-
-      this.setupWindowChangeListener(gen, mode)
+      this.emitNewRecording(gen, mode, contextSource, screenThumbnailBase64)
     } else {
       this.sendToWindows(IPC_EVENTS.RECORDING_STATE_UPDATE, {
         isRecording: true,
@@ -118,9 +114,100 @@ export class RecordingStateNotifier {
     }
   }
 
+  private async emitNewRecording(
+    gen: number,
+    mode: ItoMode,
+    contextSource?: 'screen' | 'selection' | null,
+    screenThumbnailBase64?: string | null,
+  ) {
+    const cached = activeWindowMonitor.getCachedState()
+    let immediateName: string | null = null
+    let immediateIcon: string | null = null
+
+    if (cached?.window?.appName) {
+      const lowerName = cached.window.appName.toLowerCase()
+      if (!BLOCKED_APPS.has(lowerName)) {
+        immediateName = cached.window.appName
+        immediateIcon = cached.iconBase64 ?? null
+
+        if (!immediateIcon) {
+          const cacheKey = activeWindowMonitor.getIconCacheKeyForWindow(
+            cached.window,
+          )
+          immediateIcon = activeWindowMonitor.getCachedIcon(cacheKey)
+
+          if (!immediateIcon) {
+            const pending = await activeWindowMonitor.waitForPendingIcon(
+              cacheKey,
+              150,
+            )
+            if (gen !== this.generation) return
+            if (pending) immediateIcon = pending
+          }
+        }
+      }
+    }
+
+    const isBrowser = !!immediateName && this.isBrowserApp(immediateName)
+    let resolvePromise: Promise<{
+      name: string
+      iconBase64: string | null
+    } | null> | null = null
+
+    if (isBrowser) {
+      resolvePromise = this.resolveAppTargetWithIcon()
+      const timeout = new Promise<null>(r =>
+        setTimeout(() => r(null), BROWSER_FIRST_EMIT_TIMEOUT_MS),
+      )
+      const quickResult = await Promise.race([resolvePromise, timeout])
+      if (gen !== this.generation) return
+      if (quickResult) {
+        immediateName = quickResult.name
+        immediateIcon = quickResult.iconBase64 ?? immediateIcon
+      }
+    }
+
+    this.lastSentAppName = immediateName
+    this.lastSentAppIcon = immediateIcon
+    this.setupWindowChangeListener(gen, mode)
+
+    this.sendToWindows(IPC_EVENTS.RECORDING_STATE_UPDATE, {
+      isRecording: true,
+      mode,
+      appTargetName: immediateName,
+      appTargetIconBase64: immediateIcon,
+      contextSource: contextSource ?? undefined,
+      screenThumbnailBase64: screenThumbnailBase64 ?? undefined,
+    })
+
+    const pendingResolve = resolvePromise ?? this.resolveAppTargetWithIcon()
+    pendingResolve
+      .then(result => {
+        if (gen !== this.generation) return
+        if (!result) return
+        const resolvedIcon = result.iconBase64 ?? null
+        if (
+          result.name === this.lastSentAppName &&
+          resolvedIcon === this.lastSentAppIcon
+        )
+          return
+        this.lastSentAppName = result.name
+        this.lastSentAppIcon = resolvedIcon
+        this.sendToWindows(IPC_EVENTS.RECORDING_STATE_UPDATE, {
+          isRecording: true,
+          mode,
+          appTargetName: result.name,
+          appTargetIconBase64: resolvedIcon,
+        })
+      })
+      .catch(() => {})
+  }
+
   public notifyRecordingStopped() {
     ++this.generation
     this.isCurrentlyRecording = false
+    this.lastSentAppName = null
+    this.lastSentAppIcon = null
     this.teardownWindowChangeListener()
     this.sendToWindows(IPC_EVENTS.RECORDING_STATE_UPDATE, {
       isRecording: false,
@@ -149,17 +236,37 @@ export class RecordingStateNotifier {
         return
       }
 
-      await new Promise(r => setTimeout(r, 150))
+      const preState = activeWindowMonitor.getCachedState()
+      const isBrowserSwitch =
+        !!preState?.window?.appName &&
+        this.isBrowserApp(preState.window.appName)
+
+      if (isBrowserSwitch) {
+        await activeWindowMonitor.waitForBrowserUrl(300)
+      } else {
+        await new Promise(r => setTimeout(r, 150))
+      }
+
+      if (gen !== this.generation) return
 
       const result = await this.resolveAppTargetWithIcon()
       if (gen !== this.generation) return
       if (!result) return
 
+      const resolvedIcon = result.iconBase64 ?? null
+      if (
+        result.name === this.lastSentAppName &&
+        resolvedIcon === this.lastSentAppIcon
+      )
+        return
+
+      this.lastSentAppName = result.name
+      this.lastSentAppIcon = resolvedIcon
       this.sendToWindows(IPC_EVENTS.RECORDING_STATE_UPDATE, {
         isRecording: true,
         mode,
         appTargetName: result.name,
-        appTargetIconBase64: result.iconBase64 ?? null,
+        appTargetIconBase64: resolvedIcon,
       })
     }
 
@@ -191,13 +298,26 @@ export class RecordingStateNotifier {
   } | null> {
     let window: ActiveWindowWithIcon | null = null
 
-    const daemonIcon = await activeWindowMonitor.requestIcon()
     const cached = activeWindowMonitor.getCachedState()
 
-    if (cached?.window && daemonIcon !== undefined) {
+    if (cached?.window) {
+      let icon = cached.iconBase64 ?? null
+
+      if (!icon) {
+        const daemonIcon = await activeWindowMonitor.requestIcon()
+        icon = daemonIcon ?? null
+
+        if (icon && cached.window) {
+          const currentCached = activeWindowMonitor.getCachedState()
+          if (currentCached?.window?.windowId === cached.window.windowId) {
+            activeWindowMonitor.storeIcon(cached.window, icon)
+          }
+        }
+      }
+
       window = {
         ...cached.window,
-        iconBase64: daemonIcon,
+        iconBase64: icon,
       }
     } else {
       const windowPromise = getActiveWindowWithIcon()
@@ -214,22 +334,37 @@ export class RecordingStateNotifier {
       return null
     }
 
-    let browserInfo: { url: string | null; domain: string | null; browser: string | null }
+    let browserInfo: {
+      url: string | null
+      domain: string | null
+      browser: string | null
+    }
 
     const cachedForUrl = activeWindowMonitor.getCachedState()
-    if (cachedForUrl?.browserInfo && (Date.now() - cachedForUrl.timestamp) < 2000) {
+    if (
+      cachedForUrl?.browserInfo &&
+      Date.now() - cachedForUrl.timestamp < 2000
+    ) {
       browserInfo = cachedForUrl.browserInfo
     } else {
       const browserInfoPromise = getBrowserUrl(window)
-      const browserUrlTimeout = new Promise<{ url: null; domain: null; browser: null }>(resolve =>
-        setTimeout(() => resolve({ url: null, domain: null, browser: null }), BROWSER_URL_TIMEOUT_MS),
+      const browserUrlTimeout = new Promise<{
+        url: null
+        domain: null
+        browser: null
+      }>(resolve =>
+        setTimeout(
+          () => resolve({ url: null, domain: null, browser: null }),
+          BROWSER_URL_TIMEOUT_MS,
+        ),
       )
       browserInfo = await Promise.race([browserInfoPromise, browserUrlTimeout])
     }
 
     const isBrowser = this.isBrowserApp(window.appName)
     const hasDomain = !!browserInfo.domain
-    const isRealWebsite = hasDomain && !this.isBrowserHomeDomain(browserInfo.domain!)
+    const isRealWebsite =
+      hasDomain && !this.isBrowserHomeDomain(browserInfo.domain!)
 
     if (isBrowser && isRealWebsite) {
       return this.resolveDomainTarget(browserInfo.domain!, window)
@@ -259,7 +394,12 @@ export class RecordingStateNotifier {
 
   private async resolveDomainTarget(
     rawDomain: string,
-    window: { appName: string; iconBase64?: string | null; bundleId?: string | null; exePath?: string | null },
+    window: {
+      appName: string
+      iconBase64?: string | null
+      bundleId?: string | null
+      exePath?: string | null
+    },
   ): Promise<{ name: string; iconBase64: string | null }> {
     const userId = getCurrentUserId() || DEFAULT_LOCAL_USER_ID
     const domain = this.normalizeDomain(rawDomain)
@@ -271,6 +411,14 @@ export class RecordingStateNotifier {
         return {
           name: existingTarget.name,
           iconBase64: existingTarget.iconBase64,
+        }
+      }
+
+      const cachedFavicon = this.getCachedFavicon(domain)
+      if (cachedFavicon) {
+        return {
+          name: existingTarget.name,
+          iconBase64: cachedFavicon,
         }
       }
 
@@ -296,7 +444,12 @@ export class RecordingStateNotifier {
 
   private async autoRegisterDomainTarget(
     domain: string,
-    window: { appName: string; iconBase64?: string | null; bundleId?: string | null; exePath?: string | null },
+    window: {
+      appName: string
+      iconBase64?: string | null
+      bundleId?: string | null
+      exePath?: string | null
+    },
   ): Promise<void> {
     const userId = getCurrentUserId() || DEFAULT_LOCAL_USER_ID
     const appId = normalizeAppTargetId(`domain_${domain}`)
@@ -305,6 +458,9 @@ export class RecordingStateNotifier {
     if (existing) return
 
     const favicon = await fetchFavicon(domain)
+    if (favicon) {
+      this.setFaviconCache(domain, favicon)
+    }
 
     await AppTargetTable.upsert({
       id: appId,
@@ -328,9 +484,14 @@ export class RecordingStateNotifier {
     )
   }
 
-  private async fetchAndUpdateFavicon(targetId: string, domain: string): Promise<void> {
+  private async fetchAndUpdateFavicon(
+    targetId: string,
+    domain: string,
+  ): Promise<void> {
     const favicon = await fetchFavicon(domain)
     if (!favicon) return
+
+    this.setFaviconCache(domain, favicon)
 
     const userId = getCurrentUserId() || DEFAULT_LOCAL_USER_ID
     const target = await AppTargetTable.findById(targetId, userId)
@@ -346,7 +507,9 @@ export class RecordingStateNotifier {
       iconBase64: favicon,
     })
 
-    console.log(`[RecordingStateNotifier] Updated favicon for domain: ${domain}`)
+    console.log(
+      `[RecordingStateNotifier] Updated favicon for domain: ${domain}`,
+    )
   }
 
   private async autoRegisterApp(
