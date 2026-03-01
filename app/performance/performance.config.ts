@@ -22,7 +22,10 @@ export interface HardwareInfo {
   cpuModel: string
 }
 
-export const TIER_CONFIGS: Record<Exclude<PerformanceTier, 'auto'>, PerformanceConfig> = {
+export const TIER_CONFIGS: Record<
+  Exclude<PerformanceTier, 'auto'>,
+  PerformanceConfig
+> = {
   low: {
     fpsCap: 30,
     animationDurationMultiplier: 0,

@@ -39,7 +39,18 @@ export function RegisterAppDialog({ open, onOpenChange, context }: Props) {
     setIsRegistering(true)
     try {
       const domain = selectedType === 'domain' ? context.browserDomain : null
-      await registerApp(selectedType, context.appName, domain)
+      const icon =
+        selectedType === 'domain'
+          ? context.domainIconBase64
+          : context.iconBase64
+      await registerApp(
+        selectedType,
+        context.appName,
+        domain,
+        icon,
+        context.bundleId,
+        context.exePath,
+      )
       onOpenChange(false)
     } catch (error) {
       console.error('Failed to register:', error)
@@ -79,10 +90,20 @@ export function RegisterAppDialog({ open, onOpenChange, context }: Props) {
           >
             <div
               className={`mt-0.5 p-2 rounded-lg ${
-                selectedType === 'app' ? 'bg-blue-500 text-white' : 'bg-[var(--color-muted-bg)]'
+                selectedType === 'app'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-[var(--color-muted-bg)]'
               }`}
             >
-              <AppWindowIcon className="h-5 w-5" />
+              {context.iconBase64 ? (
+                <img
+                  src={`data:image/png;base64,${context.iconBase64}`}
+                  alt={context.appName}
+                  className="h-5 w-5 rounded"
+                />
+              ) : (
+                <AppWindowIcon className="h-5 w-5" />
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
@@ -119,7 +140,15 @@ export function RegisterAppDialog({ open, onOpenChange, context }: Props) {
                   : 'bg-[var(--color-muted-bg)]'
               }`}
             >
-              <Globe className="h-5 w-5" />
+              {context.domainIconBase64 ? (
+                <img
+                  src={`data:image/png;base64,${context.domainIconBase64}`}
+                  alt={context.browserDomain || ''}
+                  className="h-5 w-5 rounded"
+                />
+              ) : (
+                <Globe className="h-5 w-5" />
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">

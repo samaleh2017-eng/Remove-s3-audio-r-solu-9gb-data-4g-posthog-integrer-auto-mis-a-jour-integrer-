@@ -42,7 +42,9 @@ export default function AppStylingContent() {
     try {
       const context = await detectCurrentApp()
       if (!context) {
-        setStatus('No app detected — click on the target app when this window minimizes')
+        setStatus(
+          'No app detected — click on the target app when this window minimizes',
+        )
         setTimeout(() => setStatus(null), 5000)
       }
     } catch (error) {
@@ -83,10 +85,12 @@ export default function AppStylingContent() {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto px-6">
+    <div className="w-full max-w-2xl mx-auto px-6 pb-8">
       <div className="space-y-8">
         <div>
-          <h1 className="text-[30px] font-semibold tracking-tight font-sans text-foreground">App Styling</h1>
+          <h1 className="text-[30px] font-semibold tracking-tight font-sans text-foreground">
+            App Styling
+          </h1>
           <p className="text-sm text-[var(--color-subtext)] mt-1">
             Assign a writing tone per app or website. Ito automatically adapts
             your transcription style based on where you're working.
@@ -171,14 +175,17 @@ export default function AppStylingContent() {
                     2
                   </span>
                   <span>
-                    Click <strong>Detect App</strong> to auto-detect, or <strong>Add Manually</strong> to type it in
+                    Click <strong>Detect App</strong> to auto-detect, or{' '}
+                    <strong>Add Manually</strong> to type it in
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="flex-shrink-0 w-5 h-5 rounded-full bg-warm-200 text-[var(--color-text)] text-xs flex items-center justify-center font-medium mt-0.5">
                     3
                   </span>
-                  <span>Click on your target app when this window minimizes</span>
+                  <span>
+                    Click on your target app when this window minimizes
+                  </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="flex-shrink-0 w-5 h-5 rounded-full bg-warm-200 text-[var(--color-text)] text-xs flex items-center justify-center font-medium mt-0.5">
@@ -209,7 +216,10 @@ export default function AppStylingContent() {
         onOpenChange={handleDialogClose}
         context={detectedContext}
       />
-      <ManualAddDialog open={manualDialogOpen} onOpenChange={setManualDialogOpen} />
+      <ManualAddDialog
+        open={manualDialogOpen}
+        onOpenChange={setManualDialogOpen}
+      />
     </div>
   )
 }

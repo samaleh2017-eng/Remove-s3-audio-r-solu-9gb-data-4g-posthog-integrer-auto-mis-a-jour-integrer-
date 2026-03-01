@@ -11,6 +11,7 @@ export interface KeyboardShortcutConfig {
   id: string
   keys: KeyName[]
   mode: ItoMode
+  isAgent?: boolean
 }
 
 interface MainStore {
@@ -35,6 +36,11 @@ export interface SettingsStore {
   firstName: string
   lastName: string
   email: string
+  translationTargetLanguage: string
+  translationType: 'one_way' | 'two_way'
+  translationLanguageA: string
+  translationLanguageB: string
+  contextAwarenessCaptureMode: 'fullscreen' | 'active_window'
 }
 
 export interface AuthState {
@@ -138,10 +144,35 @@ export const defaultValues: AppStore = {
         ) as KeyName[],
         mode: ItoMode.EDIT,
       },
+      {
+        id: crypto.randomUUID(),
+        keys: ITO_MODE_SHORTCUT_DEFAULTS[ItoMode.TRANSLATE].map(
+          normalizeLegacyKey,
+        ) as KeyName[],
+        mode: ItoMode.TRANSLATE,
+      },
+      {
+        id: crypto.randomUUID(),
+        keys: ITO_MODE_SHORTCUT_DEFAULTS[ItoMode.CONTEXT_AWARENESS].map(
+          normalizeLegacyKey,
+        ) as KeyName[],
+        mode: ItoMode.CONTEXT_AWARENESS,
+      },
+      {
+        id: crypto.randomUUID(),
+        keys: [],
+        mode: ItoMode.TRANSCRIBE,
+        isAgent: true,
+      },
     ],
     firstName: '',
     lastName: '',
     email: '',
+    translationTargetLanguage: 'en',
+    translationType: 'one_way' as const,
+    translationLanguageA: 'fr',
+    translationLanguageB: 'en',
+    contextAwarenessCaptureMode: 'fullscreen' as const,
   },
   main: { navExpanded: true },
   auth: { user: null, tokens: null, state: createNewAuthState() },
@@ -277,6 +308,26 @@ const migrations: Migration[] = [
       if ('keyboardShortcut' in settings) {
         delete settings.keyboardShortcut
         s.set('settings', settings)
+      }
+    },
+  },
+  {
+    id: '2025-09-01-add-agent-shortcut',
+    run: s => {
+      const settings: any = s.get('settings') || {}
+      const shortcuts = settings.keyboardShortcuts
+      if (!Array.isArray(shortcuts)) return
+      const hasAgent = shortcuts.some((ks: any) => ks.isAgent === true)
+      if (!hasAgent) {
+        s.set('settings.keyboardShortcuts', [
+          ...shortcuts,
+          {
+            id: crypto.randomUUID(),
+            keys: [],
+            mode: ItoMode.TRANSCRIBE,
+            isAgent: true,
+          },
+        ])
       }
     },
   },

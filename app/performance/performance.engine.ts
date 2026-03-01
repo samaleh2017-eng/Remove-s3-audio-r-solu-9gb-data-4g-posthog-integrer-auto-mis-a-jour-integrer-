@@ -49,8 +49,10 @@ function benchmarkWebGL(): number {
 
     let score = Math.max(10, Math.min(100, Math.round(100 - elapsed)))
 
-    if (/RTX|Radeon RX [67]|Apple M[2-9]/i.test(renderer)) score = Math.min(100, score + 20)
-    if (/Intel.*HD\s*(5|6)\d{2}/i.test(renderer)) score = Math.max(10, score - 15)
+    if (/RTX|Radeon RX [67]|Apple M[2-9]/i.test(renderer))
+      score = Math.min(100, score + 20)
+    if (/Intel.*HD\s*(5|6)\d{2}/i.test(renderer))
+      score = Math.max(10, score - 15)
 
     canvas.remove()
     return score
@@ -59,7 +61,9 @@ function benchmarkWebGL(): number {
   }
 }
 
-export function classifyTier(hw: HardwareInfo): Exclude<PerformanceTier, 'auto'> {
+export function classifyTier(
+  hw: HardwareInfo,
+): Exclude<PerformanceTier, 'auto'> {
   if (hw.ramGB <= 4 || hw.cpuCores <= 2) return 'low'
 
   if (hw.ramGB <= 6 || hw.gpuScore < 30) return 'low'

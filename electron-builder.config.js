@@ -119,9 +119,12 @@ module.exports = {
     uninstallDisplayName: '${productName}-uninstaller',
     createDesktopShortcut: false,
     createStartMenuShortcut: true,
-    oneClick: false,
+    oneClick: true,
     perMachine: false,
     allowToChangeInstallationDirectory: false,
+    allowElevation: true,
     deleteAppDataOnUninstall: true,
+    runAfterFinish: true,
+    include: 'resources/installer.nsh',
   },
 }

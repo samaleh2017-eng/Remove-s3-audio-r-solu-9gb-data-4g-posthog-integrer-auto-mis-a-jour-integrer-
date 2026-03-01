@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { normalizeAppTargetId } from '@/lib/utils/appTargetUtils'
 
 export type MatchType = 'app' | 'domain'
 
@@ -20,6 +21,10 @@ export type DetectedContext = {
   browserUrl: string | null
   browserDomain: string | null
   suggestedMatchType: MatchType
+  iconBase64: string | null
+  domainIconBase64: string | null
+  bundleId: string | null
+  exePath: string | null
 }
 
 export type Tone = {
@@ -43,14 +48,21 @@ type AppStylingState = {
   loadAppTargets: () => Promise<void>
   loadTones: () => Promise<void>
   detectCurrentApp: () => Promise<DetectedContext | null>
-  registerApp: (matchType: MatchType, appName: string, domain?: string | null) => Promise<AppTarget | null>
+  registerApp: (
+    matchType: MatchType,
+    appName: string,
+    domain?: string | null,
+    iconBase64?: string | null,
+    bundleId?: string | null,
+    exePath?: string | null,
+  ) => Promise<AppTarget | null>
   updateAppTone: (appId: string, toneId: string | null) => Promise<void>
   deleteAppTarget: (appId: string) => Promise<void>
   getCurrentAppTarget: () => Promise<AppTarget | null>
   clearDetectedContext: () => void
 }
 
-export const useAppStylingStore = create<AppStylingState>((set) => ({
+export const useAppStylingStore = create<AppStylingState>(set => ({
   appTargets: {},
   tones: {},
   isLoading: false,
@@ -66,7 +78,7 @@ export const useAppStylingStore = create<AppStylingState>((set) => ({
             acc[t.id] = t
             return acc
           },
-          {}
+          {},
         ),
       })
     } catch (error) {
@@ -103,11 +115,19 @@ export const useAppStylingStore = create<AppStylingState>((set) => ({
     }
   },
 
-  registerApp: async (matchType: MatchType, appName: string, domain?: string | null) => {
+  registerApp: async (
+    matchType: MatchType,
+    appName: string,
+    domain?: string | null,
+    iconBase64?: string | null,
+    bundleId?: string | null,
+    exePath?: string | null,
+  ) => {
     try {
-      const id = matchType === 'domain' && domain
-        ? `domain:${domain}`
-        : appName.toLowerCase().replace(/[^a-z0-9]/g, '-')
+      const id =
+        matchType === 'domain' && domain
+          ? `domain:${domain}`
+          : normalizeAppTargetId(appName)
 
       const name = matchType === 'domain' && domain ? domain : appName
 
@@ -116,6 +136,9 @@ export const useAppStylingStore = create<AppStylingState>((set) => ({
         name,
         matchType,
         domain: domain ?? null,
+        iconBase64: iconBase64 ?? null,
+        bundleId: bundleId ?? null,
+        exePath: exePath ?? null,
       })
       if (target) {
         set(state => ({

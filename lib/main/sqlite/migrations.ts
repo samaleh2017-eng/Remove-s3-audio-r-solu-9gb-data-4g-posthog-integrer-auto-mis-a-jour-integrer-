@@ -1050,4 +1050,29 @@ Un texte formel, clair et prêt à un usage professionnel. Rien d''autre.',
       SELECT 1;
     `,
   },
+  {
+    id: '20260225000000_add_app_target_signatures',
+    up: `
+      CREATE TABLE IF NOT EXISTS app_target_signatures (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        target_id TEXT NOT NULL,
+        signature TEXT NOT NULL,
+        signature_type TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        last_seen_at TEXT NOT NULL
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_signatures_lookup
+        ON app_target_signatures(signature, user_id);
+
+      CREATE INDEX IF NOT EXISTS idx_signatures_target
+        ON app_target_signatures(target_id, user_id);
+    `,
+    down: `
+      DROP INDEX IF EXISTS idx_signatures_target;
+      DROP INDEX IF EXISTS idx_signatures_lookup;
+      DROP TABLE IF EXISTS app_target_signatures;
+    `,
+  },
 ]

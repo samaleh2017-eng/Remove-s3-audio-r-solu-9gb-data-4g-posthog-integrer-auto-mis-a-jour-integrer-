@@ -21,6 +21,7 @@ import {
 } from './helpers.js'
 import type { ItoContext } from './types.js'
 import { applyReplacements as sharedApplyReplacements, filterLeakedContext as sharedFilterLeakedContext } from './llmUtils.js'
+import { guardLanguage, detectTextLanguage } from './languageGuard.js'
 import { isAbortError, createAbortError } from '../../utils/abortUtils.js'
 import {
   concatenateAudioChunks,
@@ -139,6 +140,9 @@ export class TranscribeStreamV2Handler {
         browserDomain: mergedConfig.context?.browserDomain || '',
         tonePrompt: mergedConfig.context?.tonePrompt || '',
         userDetailsContext,
+        screenCaptureBase64: mergedConfig.context?.screenCapture
+          ? Buffer.from(mergedConfig.context.screenCapture).toString('base64')
+          : '',
       }
 
       const mode = mergedConfig.context?.mode ?? detectItoMode(transcript)
@@ -433,20 +437,100 @@ export class TranscribeStreamV2Handler {
       ? windowContext.tonePrompt
       : basePrompt
 
+    if (mode === ItoMode.CONTEXT_AWARENESS && windowContext.screenCaptureBase64) {
+      console.log(
+        `[${new Date().toISOString()}] Using Gemini Vision for CONTEXT_AWARENESS mode (screenshot: ${Math.round(windowContext.screenCaptureBase64.length / 1024)}KB)`,
+      )
+
+      const { geminiClient } = await import('../../clients/geminiClient.js')
+
+      if (!geminiClient) {
+        console.error(
+          `[${new Date().toISOString()}] CRITICAL: geminiClient is null — GEMINI_API_KEY likely not set. Vision analysis impossible.`,
+        )
+      }
+
+      if (geminiClient && typeof geminiClient.analyzeScreenContext === 'function') {
+        const contextParts = [
+          windowContext.userDetailsContext && `INFORMATIONS UTILISATEUR:\n${windowContext.userDetailsContext}`,
+          windowContext.appName && `Application active: ${windowContext.appName}`,
+          windowContext.windowTitle && `Titre de fenêtre: ${windowContext.windowTitle}`,
+          windowContext.browserUrl && `URL: ${windowContext.browserUrl}`,
+        ].filter(Boolean).join('\n')
+
+        const enrichedSystemPrompt = contextParts
+          ? `${systemPrompt}\n\nCONTEXTE ADDITIONNEL:\n${contextParts}`
+          : systemPrompt
+
+        const MAX_VISION_RETRIES = 2
+        let lastVisionError: unknown = null
+
+        for (let attempt = 1; attempt <= MAX_VISION_RETRIES; attempt++) {
+          try {
+            console.log(
+              `[${new Date().toISOString()}] Gemini Vision attempt ${attempt}/${MAX_VISION_RETRIES}`,
+            )
+
+            const visionResult = await serverTimingCollector.timeAsync(
+              ServerTimingEventName.LLM_ADJUSTMENT,
+              () => geminiClient.analyzeScreenContext(
+                windowContext.screenCaptureBase64,
+                transcript,
+                enrichedSystemPrompt,
+                {
+                  temperature: advancedSettings.llmTemperature,
+                  model: 'gemini-2.5-flash',
+                },
+              ),
+            )
+
+            console.log(
+              `[${new Date().toISOString()}] Vision analysis succeeded on attempt ${attempt}: ${visionResult.length} chars`,
+            )
+            return visionResult.trim()
+          } catch (visionError: any) {
+            lastVisionError = visionError
+            console.error(
+              `[${new Date().toISOString()}] Vision attempt ${attempt}/${MAX_VISION_RETRIES} failed:`,
+              visionError?.message || visionError,
+            )
+
+            if (attempt < MAX_VISION_RETRIES) {
+              await new Promise(resolve => setTimeout(resolve, 1000 * attempt))
+            }
+          }
+        }
+
+        console.error(
+          `[${new Date().toISOString()}] All ${MAX_VISION_RETRIES} vision attempts failed. Last error:`,
+          lastVisionError,
+        )
+      }
+
+      console.warn('[TranscribeStreamV2] CONTEXT_AWARENESS: Vision failed or unavailable, falling through to text-only (degraded mode)')
+    }
+
+    const effectiveSystemPrompt = mode === ItoMode.CONTEXT_AWARENESS
+      ? getPromptForMode(ItoMode.EDIT, advancedSettings)
+      : systemPrompt
+
     const userPrompt = createUserPromptWithContext(transcript, windowContext)
+    const finalUserPrompt = `[LANGUAGE RULE: Your output MUST be in the SAME language as the user's dictated text below. Do NOT translate it. Do NOT switch to the language of the context metadata or system prompt. Preserve the original language of the spoken text exactly.]\n${userPrompt}`
     const llmProvider = getLlmProvider(advancedSettings.llmProvider)
 
+    const detectedInputLang = detectTextLanguage(transcript)
+
     console.log(
-      `[TranscribeStreamV2] LLM call - system prompt source: ${hasTonePrompt ? 'tonePrompt' : 'basePrompt'}, has user details: ${!!windowContext.userDetailsContext}`,
+      `[TranscribeStreamV2] LLM call - system prompt source: ${hasTonePrompt ? 'tonePrompt' : 'basePrompt'}${mode === ItoMode.CONTEXT_AWARENESS ? ' (degraded to EDIT)' : ''}, has user details: ${!!windowContext.userDetailsContext}, detected input lang: ${detectedInputLang}`,
     )
 
     const adjustedTranscript = await serverTimingCollector.timeAsync(
       ServerTimingEventName.LLM_ADJUSTMENT,
       () =>
-        llmProvider.adjustTranscript(userPrompt, {
+        llmProvider.adjustTranscript(finalUserPrompt, {
           temperature: advancedSettings.llmTemperature,
           model: advancedSettings.llmModel,
-          prompt: systemPrompt,
+          prompt: effectiveSystemPrompt,
         }),
     )
 
@@ -460,6 +544,19 @@ export class TranscribeStreamV2Handler {
       console.log(
         `🔒 [${new Date().toISOString()}] Filtered leaked context from LLM output`,
       )
+    }
+
+    if (detectedInputLang) {
+      return guardLanguage(filteredTranscript, {
+        expectedLanguage: detectedInputLang,
+        llmProvider,
+        llmOptions: {
+          temperature: advancedSettings.llmTemperature,
+          model: advancedSettings.llmModel,
+          prompt: effectiveSystemPrompt,
+        },
+        userPrompt: finalUserPrompt,
+      })
     }
 
     return filteredTranscript
@@ -541,6 +638,10 @@ export class TranscribeStreamV2Handler {
           updateCtx.tonePrompt !== ''
             ? updateCtx.tonePrompt
             : baseCtx.tonePrompt,
+        screenCapture:
+          updateCtx.screenCapture !== undefined && updateCtx.screenCapture.length > 0
+            ? updateCtx.screenCapture
+            : baseCtx.screenCapture,
       }
     }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { usePerformanceStore } from '../../store/usePerformanceStore'
 import { Square, X } from '@mynaui/icons-react'
 import { useSettingsStore } from '../../store/useSettingsStore'
@@ -6,8 +6,8 @@ import {
   useOnboardingStore,
   ONBOARDING_CATEGORIES,
 } from '../../store/useOnboardingStore'
-import { AudioVisualizer, StaticVisualizer } from './contents/AudioBars'
 import { ProcessingStatusDisplay } from './contents/AudioBarsBase'
+import { AudioWaveform } from './contents/AudioWaveform'
 import { useAudioStore } from '@/app/store/useAudioStore'
 import { analytics, ANALYTICS_EVENTS } from '../analytics'
 import { ItoIcon } from '../icons/ItoIcon'
@@ -17,6 +17,12 @@ import type {
   ProcessingStatePayload,
 } from '@/lib/types/ipc'
 import type { AppTarget } from '@/app/store/useAppStylingStore'
+import { ItoMode } from '@/app/generated/ito_pb'
+
+const MIN_PILL_WIDTH = 48
+const MIN_PILL_HEIGHT = 6
+const EXPANDED_PILL_WIDTH = 180
+const EXPANDED_PILL_HEIGHT = 34
 
 const globalStyles = `
   html, body, #app {
@@ -27,40 +33,13 @@ const globalStyles = `
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     display: flex;
-    align-items: flex-start;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
     pointer-events: none;
-    font-family:
-      'Inter',
-      system-ui,
-      -apple-system,
-      BlinkMacSystemFont,
-      'Segoe UI',
-      Roboto,
-      sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 `
-
-const PILL_WIDTH = 360
-const PILL_HEIGHT = 46
-const TOP_CORNER_RADIUS = 6
-const BOTTOM_CORNER_RADIUS = 10
-
-function buildNotchPath(w: number, h: number): string {
-  const tr = TOP_CORNER_RADIUS
-  const br = BOTTOM_CORNER_RADIUS
-  return [
-    `M 0 0`,
-    `Q ${tr} 0 ${tr} ${tr}`,
-    `L ${tr} ${h - br}`,
-    `Q ${tr} ${h} ${tr + br} ${h}`,
-    `L ${w - tr - br} ${h}`,
-    `Q ${w - tr} ${h} ${w - tr} ${h - br}`,
-    `L ${w - tr} ${tr}`,
-    `Q ${w - tr} 0 ${w} 0`,
-    `Z`,
-  ].join(' ')
-}
 
 function getBarUpdateInterval(): number {
   const { activeTier } = usePerformanceStore.getState()
@@ -89,6 +68,7 @@ const Pill = () => {
   const [isRecording, setIsRecording] = useState(false)
   const [isManualRecording, setIsManualRecording] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isAgentMode, setIsAgentMode] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const isManualRecordingRef = useRef(false)
   const [interactionSounds, setInteractionSoundsLocal] = useState(
@@ -108,13 +88,25 @@ const Pill = () => {
   const lastVolumeUpdateRef = useRef(0)
   const [volumeHistory, setVolumeHistory] = useState<number[]>([])
   const [appTarget, setAppTarget] = useState<AppTarget | null>(null)
-  const [streamingText, setStreamingText] = useState('')
+  const [contextSource, setContextSource] = useState<
+    'screen' | 'selection' | null
+  >(null)
+  const [screenThumbnail, setScreenThumbnail] = useState<string | null>(null)
+  const [currentMode, setCurrentMode] = useState<ItoMode | undefined>(undefined)
+  const isRecordingRef = useRef(false)
   const hasBeenShownRef = useRef(false)
 
-  const notchPath = useMemo(() => buildNotchPath(PILL_WIDTH, PILL_HEIGHT), [])
-  const animDuration = config.animationDurationMultiplier === 0 ? '0s' : '0.25s'
-  const animDurationOut =
-    config.animationDurationMultiplier === 0 ? '0s' : '0.2s'
+  const animDuration = config.animationDurationMultiplier === 0 ? '0s' : '0.2s'
+  const blurValue = config.enableBackdropBlur ? 'blur(14px)' : 'none'
+  const gpuHints: React.CSSProperties =
+    activeTier !== 'low'
+      ? {
+          willChange: 'transform, opacity, width, height',
+          transform: 'translateZ(0)',
+        }
+      : {}
+  const contentTransition =
+    config.animationDurationMultiplier === 0 ? '0s' : '0.15s'
   const currentAudioLevel = volumeHistory[volumeHistory.length - 1] || 0
 
   useEffect(() => {
@@ -132,15 +124,67 @@ const Pill = () => {
     const unsubRecording = window.api.on(
       'recording-state-update',
       (state: RecordingStatePayload) => {
+        const wasRecording = isRecordingRef.current
+        isRecordingRef.current = state.isRecording
         setIsRecording(state.isRecording)
 
-        if (interactionSoundsRef.current) {
+        if (state.isRecording) {
+          if (
+            state.appTargetName !== undefined ||
+            state.appTargetIconBase64 !== undefined
+          ) {
+            setAppTarget(prev => {
+              const newName = state.appTargetName ?? prev?.name ?? 'Ito'
+              const incomingIcon =
+                state.appTargetIconBase64 !== undefined
+                  ? (state.appTargetIconBase64 ?? null)
+                  : (prev?.iconBase64 ?? null)
+
+              const newIcon =
+                !incomingIcon && prev?.iconBase64 && newName === prev.name
+                  ? prev.iconBase64
+                  : incomingIcon
+
+              if (
+                prev &&
+                prev.name === newName &&
+                prev.iconBase64 === newIcon
+              ) {
+                return prev
+              }
+
+              return { name: newName, iconBase64: newIcon } as AppTarget
+            })
+          } else if (!wasRecording) {
+            setAppTarget(null)
+          }
+        }
+
+        if (state.contextSource) {
+          setContextSource(state.contextSource)
+        }
+
+        if (state.screenThumbnailBase64) {
+          setScreenThumbnail(state.screenThumbnailBase64)
+        }
+
+        if (state.mode !== undefined) {
+          setCurrentMode(state.mode)
+        }
+
+        if (
+          interactionSoundsRef.current &&
+          wasRecording !== state.isRecording
+        ) {
           soundPlayer.play(
             state.isRecording ? 'recording-start' : 'recording-stop',
           )
         }
 
-        if (!isManualRecordingRef.current) {
+        if (
+          !isManualRecordingRef.current &&
+          wasRecording !== state.isRecording
+        ) {
           const analyticsEvent = state.isRecording
             ? ANALYTICS_EVENTS.RECORDING_STARTED
             : ANALYTICS_EVENTS.RECORDING_COMPLETED
@@ -155,7 +199,6 @@ const Pill = () => {
           isManualRecordingRef.current = false
           volumeHistoryRef.current = []
           setVolumeHistory([])
-          setStreamingText('')
         }
       },
     )
@@ -164,6 +207,12 @@ const Pill = () => {
       'processing-state-update',
       (state: ProcessingStatePayload) => {
         setIsProcessing(state.isProcessing)
+        if (state.isAgent !== undefined) {
+          setIsAgentMode(state.isAgent)
+        }
+        if (!state.isProcessing) {
+          setIsAgentMode(false)
+        }
       },
     )
 
@@ -194,13 +243,6 @@ const Pill = () => {
       },
     )
 
-    const unsubStreaming = window.api.on(
-      'streaming-text-update',
-      (payload: { text: string }) => {
-        setStreamingText(payload.text)
-      },
-    )
-
     const unsubUserAuth = window.api.on('user-auth-update', (authUser: any) => {
       if (authUser) {
         analytics.identifyUser(
@@ -224,41 +266,32 @@ const Pill = () => {
       unsubVolume()
       unsubSettings()
       unsubOnboarding()
-      unsubStreaming()
       unsubUserAuth()
     }
   }, [])
 
   useEffect(() => {
-    if (isRecording || isManualRecording) {
-      window.api.appTargets
-        .getCurrent()
-        .then(setAppTarget)
-        .catch(() => setAppTarget(null))
-    }
-  }, [isRecording, isManualRecording])
-
-  useEffect(() => {
     if (!isRecording && !isManualRecording && !isProcessing) {
       setAppTarget(null)
+      setContextSource(null)
+      setScreenThumbnail(null)
+      setCurrentMode(undefined)
     }
   }, [isRecording, isManualRecording, isProcessing])
 
   const anyRecording = isRecording || isManualRecording
+  const isIdle = !anyRecording && !isProcessing
+  const isExpanded = isHovered || anyRecording || isProcessing
+
+  const isActive = anyRecording || isProcessing
   const shouldShow =
     (onboardingCategory === ONBOARDING_CATEGORIES.TRY_IT ||
       onboardingCompleted) &&
-    (anyRecording || isProcessing || showItoBarAlways || isHovered)
+    (isActive || showItoBarAlways || isHovered)
 
   if (shouldShow) {
     hasBeenShownRef.current = true
   }
-
-  const notchState: 'idle' | 'listening' | 'thinking' = anyRecording
-    ? 'listening'
-    : isProcessing
-      ? 'thinking'
-      : 'idle'
 
   const handleMouseEnter = () => {
     setIsHovered(true)
@@ -303,19 +336,27 @@ const Pill = () => {
     })
   }
 
-  const renderIcon = () => {
-    if (appTarget?.iconBase64) {
-      return (
-        <img
-          src={`data:image/png;base64,${appTarget.iconBase64}`}
-          style={{ width: 24, height: 24, borderRadius: 4 }}
-        />
-      )
-    }
-    return <ItoIcon width={24} height={24} className="text-white" />
-  }
+  const processingLabel = isAgentMode
+    ? 'Agent...'
+    : currentMode === ItoMode.CONTEXT_AWARENESS
+      ? 'Analyzing...'
+      : 'Transcribing'
 
   const renderRightContent = () => {
+    if (isHovered && isIdle) {
+      return (
+        <span
+          style={{
+            fontSize: 11,
+            color: 'rgba(255,255,255,0.4)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Click to dictate
+        </span>
+      )
+    }
+
     if (isManualRecording) {
       return (
         <>
@@ -330,24 +371,17 @@ const Pill = () => {
               border: 'none',
               cursor: 'pointer',
               padding: 0,
+              flexShrink: 0,
             }}
           >
-            <X width={16} height={16} color="white" />
+            <X width={14} height={14} color="white" />
           </button>
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <AudioVisualizer
-              audioLevel={currentAudioLevel}
-              color="white"
-              isActive
-            />
-          </div>
+          <AudioWaveform
+            audioLevel={currentAudioLevel}
+            active
+            width={80}
+            height={EXPANDED_PILL_HEIGHT}
+          />
           <button
             onClick={handleStop}
             style={{
@@ -359,130 +393,222 @@ const Pill = () => {
               border: 'none',
               cursor: 'pointer',
               padding: 0,
+              flexShrink: 0,
             }}
           >
-            <Square width={16} height={16} color="white" fill="currentColor" />
+            <Square width={14} height={14} color="white" fill="currentColor" />
           </button>
         </>
       )
     }
 
-    if (anyRecording && streamingText) {
-      return (
-        <span
-          style={{
-            fontSize: 12,
-            color: 'rgba(255,255,255,0.9)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            maxWidth: 250,
-            fontFamily: 'Inter, system-ui, sans-serif',
-          }}
-        >
-          {streamingText.slice(-40)}
-        </span>
-      )
-    }
-
     if (anyRecording) {
       return (
-        <AudioVisualizer
+        <AudioWaveform
           audioLevel={currentAudioLevel}
-          color="white"
-          isActive
+          active
+          width={100}
+          height={EXPANDED_PILL_HEIGHT}
         />
       )
     }
 
     if (isProcessing) {
-      return <ProcessingStatusDisplay color="white" />
+      return <ProcessingStatusDisplay color="white" label={processingLabel} />
     }
 
-    return <StaticVisualizer color="white" />
+    return null
   }
-
-  const isIdle = notchState === 'idle'
 
   return (
     <>
       <style>{globalStyles}</style>
       <style>{`
-        @keyframes notch-fadeIn {
-          from { opacity: 0; transform: translateY(-8px); }
+        @keyframes pill-fadeIn {
+          from { opacity: 0; transform: translateY(8px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        @keyframes notch-fadeOut {
+        @keyframes pill-fadeOut {
           from { opacity: 1; transform: translateY(0); }
-          to   { opacity: 0; transform: translateY(-8px); }
+          to   { opacity: 0; transform: translateY(8px); }
         }
       `}</style>
-      <div className="fixed top-0 left-0 w-full flex justify-center z-50 pointer-events-none">
-        <svg width={0} height={0} style={{ position: 'absolute' }}>
-          <defs>
-            <clipPath id="notch-clip">
-              <path d={notchPath} />
-            </clipPath>
-          </defs>
-        </svg>
+      <div
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          width: '100%',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'flex-end',
+          pointerEvents: 'none',
+          zIndex: 50,
+        }}
+      >
         <div
           style={{
-            width: PILL_WIDTH,
-            height: PILL_HEIGHT,
-            clipPath: 'url(#notch-clip)',
-            WebkitClipPath: 'url(#notch-clip)',
-            background: 'rgba(0,0,0,0.95)',
-            backdropFilter: config.enableBackdropBlur ? 'blur(20px)' : 'none',
-            WebkitBackdropFilter: config.enableBackdropBlur
-              ? 'blur(20px)'
-              : 'none',
             opacity: !hasBeenShownRef.current && !shouldShow ? 0 : undefined,
             animation:
               hasBeenShownRef.current || shouldShow
                 ? shouldShow
-                  ? `notch-fadeIn ${animDuration} ease-out forwards`
-                  : `notch-fadeOut ${animDurationOut} ease-in forwards`
+                  ? `pill-fadeIn ${animDuration} ease-out forwards`
+                  : `pill-fadeOut ${animDuration} ease-in forwards`
                 : 'none',
             pointerEvents: shouldShow ? 'auto' : 'none',
-            cursor:
-              isIdle && !anyRecording && !isProcessing ? 'pointer' : 'default',
-            ...(activeTier !== 'low' && { willChange: 'transform, opacity' }),
           }}
-          onClick={handleClick}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
         >
           <div
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              width: '100%',
-              height: '100%',
-              padding: '0 20px',
+              padding: 10,
+              background: 'transparent',
+              pointerEvents: 'auto',
             }}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
           >
-            {!isManualRecording && (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  {renderIcon()}
-                  <span
+            <div
+              style={{
+                opacity: isHovered && isIdle ? 1 : 0,
+                transform:
+                  isHovered && isIdle ? 'translateY(0)' : 'translateY(4px)',
+                transition: `opacity ${contentTransition} ease-out, transform ${contentTransition} ease-out`,
+                pointerEvents: 'none',
+                textAlign: 'center',
+                marginBottom: 4,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 10,
+                  color: 'rgba(255,255,255,0.55)',
+                  whiteSpace: 'nowrap',
+                  userSelect: 'none',
+                }}
+              >
+                Click to dictate
+              </span>
+            </div>
+
+            <div style={{ position: 'relative', paddingBottom: 4 }}>
+              <button
+                onClick={handleCancel}
+                style={{
+                  position: 'absolute',
+                  top: -8,
+                  right: -8,
+                  width: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  background: 'rgba(255,255,255,0.15)',
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  zIndex: 10,
+                  opacity: !isIdle && isHovered ? 1 : 0,
+                  transform: !isIdle && isHovered ? 'scale(1)' : 'scale(0)',
+                  pointerEvents: !isIdle && isHovered ? 'auto' : 'none',
+                  transition: `opacity ${animDuration} ease-out, transform ${animDuration} ease-out`,
+                  padding: 0,
+                }}
+              >
+                <X width={12} height={12} color="white" />
+              </button>
+
+              <div
+                onClick={handleClick}
+                style={{
+                  width: isExpanded ? EXPANDED_PILL_WIDTH : MIN_PILL_WIDTH,
+                  height: isExpanded ? EXPANDED_PILL_HEIGHT : MIN_PILL_HEIGHT,
+                  borderRadius: isExpanded ? 16 : 6,
+                  background: isExpanded
+                    ? 'rgba(0,0,0,0.92)'
+                    : 'rgba(0,0,0,0.6)',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  backdropFilter: blurValue,
+                  WebkitBackdropFilter: blurValue,
+                  transition: `all ${animDuration} ease-out`,
+                  cursor: 'pointer',
+                  overflow: 'hidden',
+                  ...gpuHints,
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '0 10px',
+                    width: '100%',
+                    height: '100%',
+                    opacity: isExpanded ? 1 : 0,
+                    transition: `opacity ${contentTransition} ease-out`,
+                  }}
+                >
+                  <div
                     style={{
-                      fontSize: 14,
-                      fontWeight: 600,
-                      letterSpacing: '0.025em',
-                      color: 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      flexShrink: 0,
                     }}
                   >
-                    {appTarget?.name || 'Ito'}
-                  </span>
+                    {appTarget?.iconBase64 ? (
+                      <img
+                        draggable={false}
+                        src={`data:image/png;base64,${appTarget.iconBase64}`}
+                        style={{
+                          width: 18,
+                          height: 18,
+                          borderRadius: 3,
+                          flexShrink: 0,
+                        }}
+                      />
+                    ) : (
+                      <ItoIcon width={18} height={18} className="text-white" />
+                    )}
+                    {contextSource === 'screen' && screenThumbnail && (
+                      <img
+                        draggable={false}
+                        src={`data:image/png;base64,${screenThumbnail}`}
+                        style={{
+                          width: 24,
+                          height: 14,
+                          borderRadius: 2,
+                          objectFit: 'cover',
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+                    {contextSource === 'selection' && (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          color: 'rgba(255,255,255,0.5)',
+                        }}
+                      >
+                        📝
+                      </span>
+                    )}
+                  </div>
+
+                  <div
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minWidth: 0,
+                    }}
+                  >
+                    {renderRightContent()}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  {renderRightContent()}
-                </div>
-              </>
-            )}
-            {isManualRecording && renderRightContent()}
+              </div>
+            </div>
           </div>
         </div>
       </div>

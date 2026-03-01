@@ -11,8 +11,7 @@ export const Titlebar = () => {
   const { onboardingCompleted } = useOnboardingStore()
   const { isAuthenticated } = useAuthStore()
   const showOnboarding = !onboardingCompleted || !isAuthenticated
-  const { setCurrentPage, setSettingsPage, navExpanded } =
-    useMainStore()
+  const { setCurrentPage, setSettingsPage, navExpanded } = useMainStore()
   const { logoutUser } = useAuth()
   const wcontext = useWindowContext().window
   const [showUserDropdown, setShowUserDropdown] = useState(false)
@@ -215,9 +214,12 @@ const TitlebarControls = () => {
   const [isMaximized, setIsMaximized] = useState(false)
 
   useEffect(() => {
-    const cleanup = window.api.on('window-maximized-changed', (maximized: boolean) => {
-      setIsMaximized(maximized)
-    })
+    const cleanup = window.api.on(
+      'window-maximized-changed',
+      (maximized: boolean) => {
+        setIsMaximized(maximized)
+      },
+    )
     return cleanup
   }, [])
 

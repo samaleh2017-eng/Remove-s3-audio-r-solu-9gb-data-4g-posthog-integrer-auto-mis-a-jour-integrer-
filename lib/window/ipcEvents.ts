@@ -11,7 +11,12 @@ import {
   checkAccessibilityPermission,
   checkMicrophonePermission,
 } from '../utils/crossPlatform'
-import { getUpdateStatus, installUpdateNow, downloadUpdate } from '../main/autoUpdaterWrapper'
+import {
+  getUpdateStatus,
+  installUpdateNow,
+  downloadUpdate,
+  checkForUpdates,
+} from '../main/autoUpdaterWrapper'
 
 import {
   startKeyListener,
@@ -29,14 +34,22 @@ import {
   InteractionsTable,
   UserMetadataTable,
 } from '../main/sqlite/repo'
-import { AppTargetTable, ToneTable } from '../main/sqlite/appTargetRepo'
+import {
+  AppTargetTable,
+  ToneTable,
+  type MatchType,
+} from '../main/sqlite/appTargetRepo'
+import { fetchFavicon } from '../main/faviconFetcher'
+import { persistentContextDetector } from '../main/context/PersistentContextDetector'
 import {
   UserDetailsTable,
   UserAdditionalInfoTable,
 } from '../main/sqlite/userDetailsRepo'
-import { getActiveWindow } from '../media/active-application'
+import {
+  getActiveWindow,
+  getActiveWindowWithIcon,
+} from '../media/active-application'
 import { getBrowserUrl } from '../media/browser-url'
-import { normalizeAppTargetId } from '../utils/appTargetUtils'
 import { audioRecorderService } from '../media/audio'
 import { voiceInputService } from '../main/voiceInputService'
 import { itoSessionManager } from '../main/itoSessionManager'
@@ -95,6 +108,15 @@ export function registerIPC() {
 
   ipcMain.handle('get-update-status', () => {
     return getUpdateStatus()
+  })
+
+  ipcMain.handle('check-for-updates', async () => {
+    try {
+      await checkForUpdates()
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
   })
 
   // Login Item Settings
@@ -195,6 +217,7 @@ export function registerIPC() {
   // Auth
   handleIPC('logout', () => {
     console.log('[DEBUG][IPC] logout called')
+    persistentContextDetector.clearCache()
     handleLogout()
   })
   handleIPC(
@@ -573,6 +596,7 @@ export function registerIPC() {
       log.error('No user ID found to delete data.')
       return false
     }
+    persistentContextDetector.clearCache()
     const { deleteCompleteUserData } = await import('../main/sqlite/db')
     return deleteCompleteUserData(userId)
   })
@@ -930,10 +954,37 @@ ipcMain.handle(
       domain?: string | null
       toneId?: string | null
       iconBase64?: string | null
+      bundleId?: string | null
+      exePath?: string | null
     },
   ) => {
     const userId = getCurrentUserId() || DEFAULT_LOCAL_USER_ID
-    return AppTargetTable.upsert({ ...data, userId })
+
+    let iconBase64 = data.iconBase64 ?? null
+
+    if (data.matchType === 'domain' && data.domain && !iconBase64) {
+      try {
+        console.log('[AppTargets] Fetching favicon for domain:', data.domain)
+        iconBase64 = await fetchFavicon(data.domain)
+        console.log(
+          '[AppTargets] Favicon fetch result:',
+          iconBase64 ? 'success' : 'not found',
+        )
+      } catch (error) {
+        console.warn('[AppTargets] Favicon fetch failed:', error)
+      }
+    }
+
+    const target = await AppTargetTable.upsert({ ...data, userId, iconBase64 })
+
+    await persistentContextDetector.registerSignaturesForTarget(
+      target.id,
+      data.bundleId ?? null,
+      data.exePath ?? null,
+      data.domain ?? null,
+    )
+
+    return target
   },
 )
 
@@ -941,12 +992,14 @@ ipcMain.handle(
   'app-targets:update-tone',
   async (_event, id: string, toneId: string | null) => {
     const userId = getCurrentUserId() || DEFAULT_LOCAL_USER_ID
-    return AppTargetTable.updateTone(id, userId, toneId)
+    await AppTargetTable.updateTone(id, userId, toneId)
+    persistentContextDetector.invalidateTarget(id)
   },
 )
 
 ipcMain.handle('app-targets:delete', async (_event, id: string) => {
   const userId = getCurrentUserId() || DEFAULT_LOCAL_USER_ID
+  await persistentContextDetector.removeSignaturesForTarget(id)
   return AppTargetTable.delete(id, userId)
 })
 
@@ -961,7 +1014,7 @@ ipcMain.handle('app-targets:detect-current', async () => {
 
   await new Promise(resolve => setTimeout(resolve, 2500))
 
-  const window = await getActiveWindow()
+  const window = await getActiveWindowWithIcon()
   const browserInfo = await getBrowserUrl(window)
 
   if (isMac) {
@@ -991,22 +1044,35 @@ ipcMain.handle('app-targets:detect-current', async () => {
     return null
   }
 
+  let domainIconBase64: string | null = null
+  if (browserInfo.domain) {
+    try {
+      domainIconBase64 = await fetchFavicon(browserInfo.domain)
+    } catch (error) {
+      console.warn('[AppTargets] Favicon pre-fetch failed:', error)
+    }
+  }
+
   return {
     appName,
     browserUrl: browserInfo.url,
     browserDomain: browserInfo.domain,
     suggestedMatchType: browserInfo.domain ? 'domain' : 'app',
+    iconBase64: window.iconBase64 || null,
+    domainIconBase64,
+    bundleId: window.bundleId || null,
+    exePath: window.exePath || null,
   }
 })
 
 ipcMain.handle('app-targets:get-current', async () => {
-  const userId = getCurrentUserId() || DEFAULT_LOCAL_USER_ID
-
   const window = await getActiveWindow()
-  if (!window) return null
-
-  const id = normalizeAppTargetId(window.appName)
-  return AppTargetTable.findById(id, userId)
+  const browserInfo = await getBrowserUrl(window)
+  const resolved = await persistentContextDetector.resolveForWindow(
+    window,
+    browserInfo.domain,
+  )
+  return resolved.target
 })
 
 ipcMain.handle('app-targets:list-installed-apps', async () => {
@@ -1016,12 +1082,16 @@ ipcMain.handle('app-targets:list-installed-apps', async () => {
     if (platform === 'darwin') {
       const { stdout } = await execAsync(
         `{ ls -1 /Applications/ 2>/dev/null; ls -1 ~/Applications/ 2>/dev/null; ls -1 /System/Applications/ 2>/dev/null; } | grep '\\.app$' | sed 's/\\.app$//' | sort -u`,
-        { timeout: 2000 }
+        { timeout: 2000 },
       )
-      return stdout.trim().split('\n').filter(Boolean).filter(name => {
-        const lower = name.toLowerCase()
-        return !['electron', 'ito'].some(b => lower.includes(b))
-      })
+      return stdout
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .filter(name => {
+          const lower = name.toLowerCase()
+          return !['electron', 'ito'].some(b => lower.includes(b))
+        })
     }
 
     if (platform === 'win32') {
@@ -1061,7 +1131,7 @@ ipcMain.handle('app-targets:list-installed-apps', async () => {
         try {
           const { stdout } = await execAsync(
             `reg query "${regPath}" /s /v DisplayName`,
-            { timeout: 3000, windowsHide: true }
+            { timeout: 3000, windowsHide: true },
           )
           const lines = stdout.split('\n')
           for (const line of lines) {
@@ -1089,7 +1159,7 @@ ipcMain.handle('app-targets:list-installed-apps', async () => {
     if (platform === 'linux') {
       const { stdout } = await execAsync(
         `grep -rh '^Name=' /usr/share/applications/*.desktop 2>/dev/null | sed 's/^Name=//' | sort -u`,
-        { timeout: 2000 }
+        { timeout: 2000 },
       )
       return stdout.trim().split('\n').filter(Boolean)
     }

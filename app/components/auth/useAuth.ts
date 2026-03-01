@@ -30,7 +30,11 @@ const localTokens: AuthTokens = {
 }
 
 export function useAuth() {
-  const { session, user: supabaseUser, isLoading: supabaseLoading } = useSupabaseContext()
+  const {
+    session,
+    user: supabaseUser,
+    isLoading: supabaseLoading,
+  } = useSupabaseContext()
   const {
     user: storedUser,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -53,14 +57,17 @@ export function useAuth() {
     return {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
-      name: supabaseUser.user_metadata?.full_name || supabaseUser.email?.split('@')[0] || 'User',
+      name:
+        supabaseUser.user_metadata?.full_name ||
+        supabaseUser.email?.split('@')[0] ||
+        'User',
       picture: supabaseUser.user_metadata?.avatar_url,
       provider: 'email',
     }
   }, [session, supabaseUser, storedUser])
 
   const isAuthenticated = useMemo(() => {
-    return AUTH_DISABLED ? true : (!!session && !!supabaseUser)
+    return AUTH_DISABLED ? true : !!session && !!supabaseUser
   }, [session, supabaseUser])
 
   const isLoading = useMemo(() => {
@@ -86,23 +93,40 @@ export function useAuth() {
       if (storeIsAuthenticated && storedUser?.id === supabaseUser.id) {
         return
       }
-      
+
       const profile = {
         id: supabaseUser.id,
         email: supabaseUser.email,
-        name: supabaseUser.user_metadata?.full_name || supabaseUser.email?.split('@')[0] || 'User',
+        name:
+          supabaseUser.user_metadata?.full_name ||
+          supabaseUser.email?.split('@')[0] ||
+          'User',
       }
-      window.api.notifyLoginSuccess(profile, session.access_token, session.access_token)
-      
+      window.api.notifyLoginSuccess(
+        profile,
+        session.access_token,
+        session.access_token,
+      )
+
       const authTokens: AuthTokens = {
         access_token: session.access_token,
         id_token: session.access_token,
         refresh_token: session.refresh_token || '',
-        expires_at: session.expires_at ? session.expires_at * 1000 : Date.now() + 3600 * 1000,
+        expires_at: session.expires_at
+          ? session.expires_at * 1000
+          : Date.now() + 3600 * 1000,
       }
       setAuthData(authTokens, authUser, 'email')
     }
-  }, [session, supabaseUser, authUser, setAuthData, storeIsAuthenticated, setSelfHostedMode, storedUser?.id])
+  }, [
+    session,
+    supabaseUser,
+    authUser,
+    setAuthData,
+    storeIsAuthenticated,
+    setSelfHostedMode,
+    storedUser?.id,
+  ])
 
   const signupWithEmail = useCallback(
     async (email: string, password: string, fullName?: string) => {
@@ -177,7 +201,7 @@ export function useAuth() {
     clearAuth()
     resetMainState()
     resetOnboarding()
-    
+
     window.api.logout()
 
     analytics.track(ANALYTICS_EVENTS.AUTH_LOGOUT)

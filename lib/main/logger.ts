@@ -58,7 +58,9 @@ export function initializeLogging() {
     try {
       const settings = store.get(STORE_KEYS.SETTINGS)
       _shareAnalyticsCached = settings?.shareAnalytics ?? false
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
   refreshAnalyticsFlag()
   const analyticsRefreshTimer = setInterval(refreshAnalyticsFlag, 60_000)
@@ -156,6 +158,12 @@ export function initializeLogging() {
   const originalError = _originalError
   const originalLog = _originalLog
 
+  // Save original electron-log methods before they get wrapped below
+  const _elLogLog = log.log.bind(log)
+  const _elLogInfo = log.info.bind(log)
+  const _elLogWarn = log.warn.bind(log)
+  const _elLogError = log.error.bind(log)
+
   console.log = (...args: any[]) => {
     try {
       if (_shareAnalyticsCached) {
@@ -166,6 +174,7 @@ export function initializeLogging() {
     } catch (err) {
       originalError('Failed to enqueue log event (log):', err)
     }
+    if (app.isPackaged) _elLogLog(...args)
     originalLog.apply(console, args as any)
   }
   console.info = (...args: any[]) => {
@@ -178,6 +187,7 @@ export function initializeLogging() {
     } catch (err) {
       originalError('Failed to enqueue log event (info):', err)
     }
+    if (app.isPackaged) _elLogInfo(...args)
     originalInfo.apply(console, args as any)
   }
   console.warn = (...args: any[]) => {
@@ -190,6 +200,7 @@ export function initializeLogging() {
     } catch (err) {
       originalError('Failed to enqueue log event (warn):', err)
     }
+    if (app.isPackaged) _elLogWarn(...args)
     originalWarn.apply(console, args as any)
   }
   console.error = (...args: any[]) => {
@@ -201,6 +212,7 @@ export function initializeLogging() {
     } catch (err) {
       originalError('Failed to enqueue log event (error):', err)
     }
+    if (app.isPackaged) _elLogError(...args)
     originalError.apply(console, args as any)
   }
 
@@ -225,7 +237,8 @@ export function initializeLogging() {
         const isError = method === 'error'
         if (isError || _shareAnalyticsCached) {
           queue.push(toEvent(mapped as any, String(args[0] ?? ''), { args }))
-          if (queue.length > MAX_QUEUE) queue.splice(0, queue.length - MAX_QUEUE)
+          if (queue.length > MAX_QUEUE)
+            queue.splice(0, queue.length - MAX_QUEUE)
           scheduleFlush()
         }
       } catch (err) {

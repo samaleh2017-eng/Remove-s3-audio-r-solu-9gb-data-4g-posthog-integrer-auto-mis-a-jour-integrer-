@@ -7,10 +7,12 @@ import { syncService } from './syncService'
 import { destroyAppTray } from './tray'
 import { timingCollector } from './timing/TimingCollector'
 import { stopAutoUpdater } from './autoUpdaterWrapper'
+import { activeWindowMonitor } from './ActiveWindowMonitor'
 
 export const teardown = () => {
   stopAutoUpdater()
   stopKeyListener()
+  activeWindowMonitor.stop()
   audioRecorderService.terminate()
   selectedTextReaderService.terminate()
   timingCollector.shutdown()

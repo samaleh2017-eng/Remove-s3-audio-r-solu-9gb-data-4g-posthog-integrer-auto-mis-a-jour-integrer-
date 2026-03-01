@@ -12,6 +12,13 @@ import { IntentTranscriptionOptions } from './intentTranscriptionConfig.js'
 
 dotenv.config()
 
+export class VisionAnalysisError extends Error {
+  constructor(message: string, public readonly cause?: unknown) {
+    super(message)
+    this.name = 'VisionAnalysisError'
+  }
+}
+
 class GeminiClient implements LlmProvider {
   private readonly _client: GoogleGenAI
   private readonly _defaultModel: string
@@ -118,6 +125,91 @@ class GeminiClient implements LlmProvider {
     } catch (error: any) {
       console.error('An error occurred during transcript adjustment:', error)
       return userPrompt
+    }
+  }
+
+  public async analyzeScreenContext(
+    screenshotBase64: string,
+    voiceCommand: string,
+    systemPrompt: string,
+    options?: IntentTranscriptionOptions,
+  ): Promise<string> {
+    if (!this.isAvailable) {
+      throw new ClientUnavailableError(ClientProvider.GEMINI)
+    }
+
+    if (!screenshotBase64 || screenshotBase64.length < 100) {
+      throw new VisionAnalysisError(
+        `Screenshot data is missing or too small (${screenshotBase64?.length ?? 0} chars)`,
+      )
+    }
+
+    console.log(
+      `[GeminiClient] analyzeScreenContext called - screenshot: ${Math.round(screenshotBase64.length / 1024)}KB, command: "${voiceCommand}", model: ${options?.model || 'gemini-2.5-flash'}`,
+    )
+
+    try {
+      const parts: Array<{ inlineData?: { mimeType: string; data: string }; text?: string }> = [
+        {
+          inlineData: {
+            mimeType: 'image/png',
+            data: screenshotBase64,
+          },
+        },
+        {
+          text: voiceCommand,
+        },
+      ]
+
+      const response = await this._client.models.generateContent({
+        model: options?.model || 'gemini-2.5-flash',
+        contents: [
+          {
+            role: 'user',
+            parts,
+          },
+        ],
+        config: {
+          systemInstruction: systemPrompt,
+          temperature: options?.temperature ?? 0.3,
+        },
+      })
+
+      const resultText = response.text?.trim()
+
+      if (!resultText) {
+        console.error(
+          '[GeminiClient] Vision API returned empty response. Candidates:',
+          JSON.stringify(response.candidates?.map(c => ({
+            finishReason: c.finishReason,
+            safetyRatings: c.safetyRatings,
+          }))),
+        )
+        throw new VisionAnalysisError(
+          'Gemini Vision returned empty response (possible safety block or no candidates)',
+        )
+      }
+
+      console.log(
+        `[GeminiClient] Vision analysis success - response length: ${resultText.length} chars`,
+      )
+      return resultText
+    } catch (error: any) {
+      if (error instanceof VisionAnalysisError) {
+        throw error
+      }
+
+      console.error(
+        '[GeminiClient] Vision API call failed:',
+        error?.message || error,
+        '\nStatus:',
+        error?.status || error?.statusCode || 'N/A',
+      )
+
+      throw new VisionAnalysisError(
+        `Gemini Vision API failed: ${error?.message || 'Unknown error'}`,
+        error,
+      )
     }
   }
 }

@@ -24,10 +24,19 @@ interface StoreAPI {
 }
 
 interface UpdaterAPI {
-  onUpdateAvailable: (callback: () => void) => void
-  onUpdateDownloaded: (callback: () => void) => void
+  onUpdateAvailable: (callback: () => void) => () => void
+  onUpdateNotAvailable: (callback: () => void) => () => void
+  onUpdateDownloaded: (callback: () => void) => () => void
+  onUpdateError: (callback: (message: string) => void) => () => void
+  onDownloadProgress: (callback: (percent: number) => void) => () => void
   installUpdate: () => void
   downloadUpdate: () => Promise<{ success: boolean; error?: string }>
+  getUpdateStatus: () => Promise<{
+    updateAvailable: boolean
+    updateDownloaded: boolean
+    availableVersion?: string
+  }>
+  checkForUpdates: () => Promise<{ success: boolean; error?: string }>
 }
 
 interface SelectedTextOptions {

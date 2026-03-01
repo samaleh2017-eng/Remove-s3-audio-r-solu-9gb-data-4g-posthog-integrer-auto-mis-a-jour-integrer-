@@ -168,6 +168,7 @@ const deleteUserData = async (userId: string) => {
       './repo'
     )
     const { AppTargetTable, ToneTable } = await import('./appTargetRepo')
+    const { AppTargetSignatureTable } = await import('./appTargetSignatureRepo')
     const { UserDetailsTable } = await import('./userDetailsRepo')
 
     // Delete all user data from all tables
@@ -176,6 +177,7 @@ const deleteUserData = async (userId: string) => {
       NotesTable.deleteAllUserData(userId),
       DictionaryTable.deleteAllUserData(userId),
       AppTargetTable.deleteAllUserData(userId),
+      AppTargetSignatureTable.deleteAllUserData(userId),
       ToneTable.deleteAllUserData(userId),
       UserDetailsTable.deleteAllUserData(userId),
     ])

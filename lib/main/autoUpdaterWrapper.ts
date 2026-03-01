@@ -7,6 +7,7 @@ import { hardKillAll, teardown } from './teardown'
 export interface UpdateStatus {
   updateAvailable: boolean
   updateDownloaded: boolean
+  availableVersion?: string
 }
 
 let updateStatus: UpdateStatus = {
@@ -21,13 +22,11 @@ export function getUpdateStatus(): UpdateStatus {
 }
 
 export function initializeAutoUpdater() {
-  // Initialize update status tracking
   updateStatus = {
     updateAvailable: false,
     updateDownloaded: false,
   }
 
-  // Allow auto-updater in development mode if VITE_DEV_AUTO_UPDATE is set
   const enableDevUpdater = import.meta.env.VITE_DEV_AUTO_UPDATE === 'true'
 
   if (app.isPackaged || enableDevUpdater) {
@@ -38,7 +37,6 @@ export function initializeAutoUpdater() {
           : 'Development auto-updater enabled, initializing...',
       )
 
-      // Force dev updates if in development mode
       if (!app.isPackaged) {
         autoUpdater.forceDevUpdateConfig = true
       }
@@ -59,7 +57,6 @@ export function initializeAutoUpdater() {
       setupAutoUpdaterEvents()
       autoUpdater.checkForUpdates()
 
-      // Poll for updates every 10 minutes
       updateCheckTimer = setInterval(
         () => {
           autoUpdater.checkForUpdates()
@@ -72,37 +69,45 @@ export function initializeAutoUpdater() {
   }
 }
 
+function sendToMainWindow(event: string, ...args: any[]) {
+  if (
+    mainWindow &&
+    !mainWindow.isDestroyed() &&
+    !mainWindow.webContents.isDestroyed()
+  ) {
+    mainWindow.webContents.send(event, ...args)
+  }
+}
+
 function setupAutoUpdaterEvents() {
-  autoUpdater.on('update-available', () => {
+  autoUpdater.on('update-available', info => {
+    console.log('[Updater] Update available:', info.version)
     updateStatus.updateAvailable = true
-    if (
-      mainWindow &&
-      !mainWindow.isDestroyed() &&
-      !mainWindow.webContents.isDestroyed()
-    ) {
-      mainWindow.webContents.send('update-available')
-    }
+    updateStatus.availableVersion = info.version
+    sendToMainWindow('update-available')
+  })
+
+  autoUpdater.on('update-not-available', info => {
+    console.log('[Updater] No update available. Latest:', info.version)
+    sendToMainWindow('update-not-available')
   })
 
   autoUpdater.on('update-downloaded', () => {
-    console.log('update downloaded successfully')
+    console.log('[Updater] Update downloaded successfully')
     updateStatus.updateDownloaded = true
-    if (
-      mainWindow &&
-      !mainWindow.isDestroyed() &&
-      !mainWindow.webContents.isDestroyed()
-    ) {
-      mainWindow.webContents.send('update-downloaded')
-    }
+    sendToMainWindow('update-downloaded')
   })
 
   autoUpdater.on('error', error => {
-    console.error('Auto updater error:', error)
+    console.error('[Updater] Error:', error)
+    sendToMainWindow('update-error', error?.message || String(error))
   })
 
   autoUpdater.on('download-progress', progressObj => {
-    const log_message = `Download speed: ${progressObj.bytesPerSecond} - Downloaded ${progressObj.percent.toFixed(2)}% (${progressObj.transferred}/${progressObj.total})`
-    console.log(log_message)
+    console.log(
+      `[Updater] Download: ${progressObj.percent.toFixed(2)}% (${progressObj.transferred}/${progressObj.total})`,
+    )
+    sendToMainWindow('update-download-progress', progressObj.percent)
   })
 }
 
@@ -110,6 +115,14 @@ export function stopAutoUpdater() {
   if (updateCheckTimer) {
     clearInterval(updateCheckTimer)
     updateCheckTimer = null
+  }
+}
+
+export async function checkForUpdates(): Promise<void> {
+  try {
+    await autoUpdater.checkForUpdates()
+  } catch (e) {
+    console.error('[Updater] checkForUpdates error:', e)
   }
 }
 
@@ -122,28 +135,30 @@ export function downloadUpdate() {
 export async function installUpdateNow() {
   if (installing) return
   installing = true
-  console.log('[Updater] Preparing to install…')
+  console.log('[Updater] Preparing to install update...')
 
   try {
-    // Try to gracefully shut down processes
     teardown()
     await new Promise(resolve => setTimeout(resolve, 1_500))
 
     console.log('[Updater] Forcibly kill all straggler processes')
-    // Force-kill stragglers + crashpad/helpers
     await hardKillAll()
 
-    console.log('[Updater] calling autoUpdater quit and install')
-    // Fire the installer (UI visible for debugging recommended)
-    autoUpdater.quitAndInstall(false /* isSilent */, true /* forceRunAfter */)
+    console.log('[Updater] Calling autoUpdater.quitAndInstall (silent)')
+    autoUpdater.quitAndInstall(true, true)
+
+    setTimeout(() => {
+      console.log('[Updater] Force exit fallback')
+      app.exit(0)
+    }, 3_000)
   } catch (e) {
     log.error('[Updater] installUpdateNow error', e)
-    // Try again, but don’t loop forever
     try {
       await hardKillAll()
-      autoUpdater.quitAndInstall(false, true)
+      autoUpdater.quitAndInstall(true, true)
+      setTimeout(() => app.exit(0), 3_000)
     } catch {
-      /* empty */
+      app.exit(0)
     }
   }
 }

@@ -6,14 +6,18 @@ import { TextInserter } from './text/TextInserter'
 import { interactionManager } from './interactions/InteractionManager'
 import { contextGrabber, ContextData } from './context/ContextGrabber'
 import { GrammarRulesService } from './grammar/GrammarRulesService'
-import { getAdvancedSettings } from './store'
+import { getAdvancedSettings, store } from './store'
 import log from 'electron-log'
 import { preventAppNap, allowAppNap } from './appNap'
 import { timingCollector, TimingEventName } from './timing/TimingCollector'
-import { SonioxStreamingService } from './soniox/SonioxStreamingService'
+import {
+  SonioxStreamingService,
+  SonioxTranslationConfig,
+} from './soniox/SonioxStreamingService'
 import { sonioxTempKeyManager } from './soniox/SonioxTempKeyManager'
 import { audioRecorderService } from '../media/audio'
 import { itoHttpClient } from '../clients/itoHttpClient'
+import { STORE_KEYS } from '../constants/store-keys'
 
 export class ItoSessionManager {
   private readonly MINIMUM_AUDIO_DURATION_MS = 100
@@ -35,6 +39,7 @@ export class ItoSessionManager {
   private sonioxContext: ContextData | null = null
   private sonioxSessionGeneration = 0
   private sonioxSessionActive = false
+  private contextGatherPromise: Promise<void> | null = null
 
   public async startSession(mode: ItoMode) {
     console.log('[itoSessionManager] Starting session with mode:', mode)
@@ -54,7 +59,11 @@ export class ItoSessionManager {
     const { llm } = getAdvancedSettings()
     const isSoniox = llm?.asrProvider === 'soniox'
 
-    if (isSoniox) {
+    if (
+      mode === ItoMode.TRANSLATE ||
+      mode === ItoMode.CONTEXT_AWARENESS ||
+      isSoniox
+    ) {
       await this.startSonioxSession(mode)
     } else {
       await this.startGrpcSession(mode)
@@ -128,7 +137,7 @@ export class ItoSessionManager {
           )
           this.handleSonioxStreamError(error)
         })
-        await this.sonioxService.start(tempKey)
+        await this.sonioxService.start(tempKey, this.getTranslationConfig())
 
         if (generation !== this.sonioxSessionGeneration) {
           console.log(
@@ -162,11 +171,17 @@ export class ItoSessionManager {
         )
       }
     } catch (error) {
+      if (this.currentMode === ItoMode.TRANSLATE) {
+        console.error(
+          '[itoSessionManager] Translation mode requires Soniox. Ensure Soniox API key is configured on the server.',
+        )
+      }
       log.error('[itoSessionManager] Failed to start Soniox session:', error)
       this.sonioxService = null
     }
 
-    this.gatherAndCacheContext(mode).catch(error => {
+    this.contextGatherPromise = this.gatherAndCacheContext(mode)
+    this.contextGatherPromise.catch(error => {
       log.error(
         '[itoSessionManager] Failed to gather context for Soniox:',
         error,
@@ -181,6 +196,14 @@ export class ItoSessionManager {
     console.log('[itoSessionManager] Gathering context for Soniox mode...')
     const context = await contextGrabber.gatherContext(mode)
     this.sonioxContext = context
+
+    if (mode === ItoMode.CONTEXT_AWARENESS && context.contextSource) {
+      recordingStateNotifier.notifyRecordingStarted(
+        mode,
+        context.contextSource,
+        context.screenThumbnailBase64,
+      )
+    }
 
     const { grammarServiceEnabled } = getAdvancedSettings()
     if (grammarServiceEnabled) {
@@ -200,6 +223,17 @@ export class ItoSessionManager {
     )
 
     await itoStreamController.scheduleConfigUpdate(context)
+
+    if (
+      itoStreamController.getCurrentMode() === ItoMode.CONTEXT_AWARENESS &&
+      context.contextSource
+    ) {
+      recordingStateNotifier.notifyRecordingStarted(
+        itoStreamController.getCurrentMode(),
+        context.contextSource,
+        context.screenThumbnailBase64,
+      )
+    }
 
     const { grammarServiceEnabled } = getAdvancedSettings()
     if (grammarServiceEnabled) {
@@ -334,7 +368,9 @@ export class ItoSessionManager {
 
   private async completeSonioxSession() {
     if (!this.sonioxSessionActive) {
-      console.warn('[itoSessionManager] completeSonioxSession called but no active session, skipping')
+      console.warn(
+        '[itoSessionManager] completeSonioxSession called but no active session, skipping',
+      )
       return
     }
     this.sonioxSessionActive = false
@@ -359,7 +395,10 @@ export class ItoSessionManager {
       try {
         rawTranscript = await service.stop()
       } catch (error) {
-        console.error('[itoSessionManager] Error stopping Soniox service:', error)
+        console.error(
+          '[itoSessionManager] Error stopping Soniox service:',
+          error,
+        )
         rawTranscript = service.getAccumulatedText() || ''
       }
     }
@@ -372,6 +411,15 @@ export class ItoSessionManager {
       return
     }
 
+    if (this.contextGatherPromise) {
+      try {
+        await this.contextGatherPromise
+      } catch {
+        // already logged at call site
+      }
+      this.contextGatherPromise = null
+    }
+
     const mode = this.currentMode
 
     try {
@@ -380,7 +428,14 @@ export class ItoSessionManager {
 
       const requestBody: Record<string, any> = {
         transcript: rawTranscript,
-        mode: mode === ItoMode.EDIT ? 'edit' : 'transcribe',
+        mode:
+          mode === ItoMode.EDIT
+            ? 'edit'
+            : mode === ItoMode.TRANSLATE
+              ? 'translate'
+              : mode === ItoMode.CONTEXT_AWARENESS
+                ? 'context_awareness'
+                : 'transcribe',
         llmSettings: {
           llmProvider: llm?.llmProvider || undefined,
           llmModel: llm?.llmModel || undefined,
@@ -388,6 +443,11 @@ export class ItoSessionManager {
           transcriptionPrompt: llm?.transcriptionPrompt || undefined,
           editingPrompt: llm?.editingPrompt || undefined,
         },
+      }
+
+      if (mode === ItoMode.TRANSLATE) {
+        const settings = store.get(STORE_KEYS.SETTINGS)
+        requestBody.targetLanguage = settings?.translationTargetLanguage || 'en'
       }
 
       if (ctx) {
@@ -401,6 +461,9 @@ export class ItoSessionManager {
           userDetailsContext: ctx.userDetails
             ? this.buildUserDetailsContextString(ctx.userDetails)
             : undefined,
+        }
+        if (mode === ItoMode.CONTEXT_AWARENESS && ctx.screenCaptureBase64) {
+          requestBody.screenshotBase64 = ctx.screenCaptureBase64
         }
         if (ctx.replacements && ctx.replacements.length > 0) {
           requestBody.replacements = ctx.replacements.map(r => ({
@@ -416,7 +479,7 @@ export class ItoSessionManager {
         { requireAuth: true },
       )
 
-      if (response.success && response.transcript) {
+      if (response?.success && response?.transcript) {
         let textToInsert = response.transcript
 
         const { grammarServiceEnabled } = getAdvancedSettings()
@@ -428,7 +491,10 @@ export class ItoSessionManager {
 
         this.textInserter.insertText(textToInsert)
       } else {
-        console.error('[itoSessionManager] LLM adjustment failed:', response.error)
+        console.error(
+          '[itoSessionManager] LLM adjustment failed:',
+          response?.error,
+        )
         this.textInserter.insertText(rawTranscript)
       }
     } catch (error) {
@@ -478,11 +544,32 @@ export class ItoSessionManager {
     return lines.join('\n')
   }
 
+  private getTranslationConfig(): SonioxTranslationConfig | undefined {
+    if (this.currentMode !== ItoMode.TRANSLATE) return undefined
+
+    const settings = store.get(STORE_KEYS.SETTINGS)
+    const type = settings?.translationType || 'one_way'
+
+    if (type === 'one_way') {
+      return {
+        type: 'one_way',
+        targetLanguage: settings?.translationTargetLanguage || 'en',
+      }
+    } else {
+      return {
+        type: 'two_way',
+        languageA: settings?.translationLanguageA || 'fr',
+        languageB: settings?.translationLanguageB || 'en',
+      }
+    }
+  }
+
   private cleanupSonioxState() {
     timingCollector.finalizeInteraction()
     interactionManager.clearCurrentInteraction()
     this.isSonioxMode = false
     this.sonioxContext = null
+    this.contextGatherPromise = null
   }
 
   private async handleTranscriptionResponse(result: {
@@ -574,7 +661,10 @@ export class ItoSessionManager {
     this.sonioxService = null
 
     voiceInputService.stopAudioRecording().catch(e => {
-      console.error('[itoSessionManager] Error stopping audio after Soniox error:', e)
+      console.error(
+        '[itoSessionManager] Error stopping audio after Soniox error:',
+        e,
+      )
     })
 
     recordingStateNotifier.notifyRecordingStopped()

@@ -7,6 +7,7 @@ import AdvancedSettingsContent from './settings/AdvancedSettingsContent'
 import PricingBillingSettingsContent from './settings/PricingBillingSettingsContent'
 import MyDetailsSettingsContent from './settings/MyDetailsSettingsContent'
 import PerformanceSettingsContent from './settings/PerformanceSettingsContent'
+import UpdatesSettingsContent from './settings/UpdatesSettingsContent'
 import {
   FineTune,
   Keyboard,
@@ -16,6 +17,7 @@ import {
   Users,
   CreditCard,
   Lightning,
+  Download,
 } from '@mynaui/icons-react'
 
 const settingsNavItems = [
@@ -24,6 +26,7 @@ const settingsNavItems = [
   { id: 'audio', label: 'Audio & Mic', icon: Microphone },
   { id: 'performance', label: 'Performance', icon: Lightning },
   { id: 'advanced', label: 'Advanced', icon: Code },
+  { id: 'updates', label: 'Updates', icon: Download },
 ]
 
 const accountNavItems = [
@@ -38,6 +41,7 @@ const pageTitles: Record<string, string> = {
   audio: 'Audio & Mic',
   performance: 'Performance',
   advanced: 'Advanced',
+  updates: 'Updates',
   'my-details': 'My Details',
   account: 'Account',
   'pricing-billing': 'Plans and Billing',
@@ -64,14 +68,16 @@ export default function SettingsContent() {
         return <AccountSettingsContent />
       case 'advanced':
         return <AdvancedSettingsContent />
+      case 'updates':
+        return <UpdatesSettingsContent />
       default:
         return <GeneralSettingsContent />
     }
   }
 
   return (
-    <div className="flex h-full">
-      <div className="w-[260px] flex-shrink-0 flex flex-col justify-between py-6 px-5 border-r border-[#E8E8E8]">
+    <div className="flex h-full min-h-0">
+      <div className="w-[260px] flex-shrink-0 flex flex-col justify-between py-6 px-5 border-r border-[#E8E8E8] bg-[#E4E1DE] overflow-y-auto">
         <div>
           <div className="text-xs font-semibold tracking-[1.5px] text-[#999] uppercase mb-3 px-3">
             Settings
@@ -83,8 +89,8 @@ export default function SettingsContent() {
                 onClick={() => setSettingsPage(item.id as any)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors cursor-pointer ${
                   settingsPage === item.id
-                    ? 'bg-[#F2F2F2] font-medium text-[#1f1f1f]'
-                    : 'text-[#666] hover:bg-[#F8F8F8] hover:text-[#333]'
+                    ? 'bg-white/60 font-medium text-[#1f1f1f]'
+                    : 'text-[#666] hover:bg-white/40 hover:text-[#333]'
                 }`}
               >
                 <item.icon className="w-5 h-5" />
@@ -102,8 +108,8 @@ export default function SettingsContent() {
                 onClick={() => setSettingsPage(item.id as any)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors cursor-pointer ${
                   settingsPage === item.id
-                    ? 'bg-[#F2F2F2] font-medium text-[#1f1f1f]'
-                    : 'text-[#666] hover:bg-[#F8F8F8] hover:text-[#333]'
+                    ? 'bg-white/60 font-medium text-[#1f1f1f]'
+                    : 'text-[#666] hover:bg-white/40 hover:text-[#333]'
                 }`}
               >
                 <item.icon className="w-5 h-5" />
@@ -112,13 +118,15 @@ export default function SettingsContent() {
             ))}
           </div>
         </div>
-        <div className="text-xs text-[#aaa] px-3">Ito v0.2.3</div>
+        <div className="text-xs text-[#aaa] px-3">
+          Ito v{import.meta.env.VITE_ITO_VERSION}
+        </div>
       </div>
-      <div className="flex-1 py-6 px-10 overflow-y-auto">
+      <div className="flex-1 py-6 px-10 overflow-y-auto bg-[#F3F2F1]">
         <h1 className="font-sans text-2xl font-semibold text-[#1f1f1f] mb-6">
           {pageTitles[settingsPage] ?? 'General'}
         </h1>
-        <div>{renderSettingsContent()}</div>
+        <div className="pb-4">{renderSettingsContent()}</div>
       </div>
     </div>
   )

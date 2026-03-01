@@ -4,13 +4,8 @@ import {
   UserDetailsTable,
   UserAdditionalInfoTable,
 } from '../sqlite/userDetailsRepo'
-import {
-  AppTargetTable,
-  ToneTable,
-  type Tone,
-  type AppTarget,
-} from '../sqlite/appTargetRepo'
-import { getCurrentUserId, getAdvancedSettings } from '../store'
+import { type Tone } from '../sqlite/appTargetRepo'
+import { getCurrentUserId, getAdvancedSettings, store } from '../store'
 import { getActiveWindow } from '../../media/active-application'
 import {
   getSelectedTextString,
@@ -18,11 +13,11 @@ import {
 } from '../../media/selected-text-reader'
 import { getBrowserUrl } from '../../media/browser-url'
 import { canGetContextFromCurrentApp } from '../../utils/applicationDetection'
-import {
-  normalizeAppTargetId,
-  DEFAULT_TONE_ID,
-} from '../../utils/appTargetUtils'
 import log from 'electron-log'
+import { persistentContextDetector } from './PersistentContextDetector'
+import { captureScreen, CaptureMode } from '../../media/screenCapture'
+import { STORE_KEYS } from '../../constants/store-keys'
+import { activeWindowMonitor } from '../ActiveWindowMonitor'
 
 const DEFAULT_LOCAL_USER_ID = 'local-user'
 import { timingCollector, TimingEventName } from '../timing/TimingCollector'
@@ -50,6 +45,9 @@ export interface ContextData {
   browserDomain: string | null
   advancedSettings: ReturnType<typeof getAdvancedSettings>
   tone: Tone | null
+  screenCaptureBase64: string | null
+  screenThumbnailBase64: string | null
+  contextSource: 'screen' | 'selection' | null
 }
 
 /**
@@ -70,37 +68,88 @@ export class ContextGrabber {
     // Get user details
     const userDetails = await this.getUserDetails()
 
-    // Get active window context
-    const windowContext = await timingCollector.timeAsync(
+    // Single native binary call for active window
+    const activeWindow = await timingCollector.timeAsync(
       TimingEventName.WINDOW_CONTEXT_GATHER,
-      async () => await this.getWindowContext(),
+      async () => {
+        const cached = activeWindowMonitor.getCachedState()
+        if (cached && (Date.now() - cached.timestamp) < 1500) {
+          return cached.window
+        }
+        try {
+          return await getActiveWindow()
+        } catch (error) {
+          log.error('[ContextGrabber] Error getting active window:', error)
+          return null
+        }
+      },
     )
 
-    // Get browser URL if in a browser
+    // Single browser URL detection — reuses activeWindow
     const { url: browserUrl, domain: browserDomain } =
       await timingCollector.timeAsync(
         TimingEventName.BROWSER_URL_GATHER,
-        async () => await getBrowserUrl(windowContext),
+        async () => {
+          const cached = activeWindowMonitor.getCachedState()
+          if (cached?.browserInfo && (Date.now() - cached.timestamp) < 1500) {
+            return cached.browserInfo
+          }
+          return await getBrowserUrl(activeWindow)
+        },
       )
 
-    // Get selected text if in EDIT mode
-    const contextText = await this.getContextText(mode)
+    let contextText = ''
+    let screenCaptureBase64: string | null = null
+    let screenThumbnailBase64: string | null = null
+    let contextSource: 'screen' | 'selection' | null = null
+
+    if (mode === ItoMode.CONTEXT_AWARENESS) {
+      contextText = await this.getContextText(ItoMode.EDIT)
+
+      if (contextText && contextText.trim().length > 0) {
+        contextSource = 'selection'
+        console.log('[ContextGrabber] CONTEXT_AWARENESS using selected text')
+      } else {
+        const settings = store.get(STORE_KEYS.SETTINGS)
+        const captureMode: CaptureMode =
+          settings?.contextAwarenessCaptureMode || 'fullscreen'
+
+        const capture = await captureScreen(captureMode)
+        if (capture) {
+          screenCaptureBase64 = capture.base64
+          screenThumbnailBase64 = capture.thumbnailBase64
+          contextSource = 'screen'
+          console.log(
+            `[ContextGrabber] CONTEXT_AWARENESS captured ${captureMode}: ${capture.width}x${capture.height}`,
+          )
+        }
+      }
+    } else {
+      contextText = await this.getContextText(mode)
+    }
 
     // Get advanced settings
     const advancedSettings = getAdvancedSettings()
 
-    // Get tone for current app (check domain first, then app)
-    const tone = await this.getToneForCurrentApp(
-      windowContext?.appName,
-      browserDomain,
+    // Resolve tone via hybrid detection — reuses activeWindow + browserDomain, 0 extra binary calls
+    const resolved = await timingCollector.timeAsync(
+      TimingEventName.WINDOW_CONTEXT_GATHER,
+      async () =>
+        await persistentContextDetector.resolveForWindow(
+          activeWindow,
+          browserDomain,
+        ),
     )
+    const tone = resolved.tone
 
-    console.log('[ContextGrabber] App name:', windowContext?.appName)
+    console.log('[ContextGrabber] App name:', activeWindow?.appName)
     console.log(
       '[ContextGrabber] Tone found:',
       tone?.name,
-      '| Template:',
-      tone?.promptTemplate?.substring(0, 50),
+      '| via signature:',
+      resolved.signature,
+      '| type:',
+      resolved.signatureType,
     )
     console.log('[ContextGrabber] Context gathered successfully')
 
@@ -108,13 +157,16 @@ export class ContextGrabber {
       vocabularyWords,
       replacements,
       userDetails,
-      windowTitle: windowContext?.title || '',
-      appName: windowContext?.appName || '',
+      windowTitle: activeWindow?.title || '',
+      appName: activeWindow?.appName || '',
       contextText,
       browserUrl,
       browserDomain,
       advancedSettings,
       tone,
+      screenCaptureBase64,
+      screenThumbnailBase64,
+      contextSource,
     }
   }
 
@@ -176,71 +228,6 @@ export class ContextGrabber {
     } catch (error) {
       log.error('[ContextGrabber] Error getting vocabulary:', error)
       return { vocabularyWords: [], replacements: [] }
-    }
-  }
-
-  private async getWindowContext(): Promise<{
-    title: string
-    appName: string
-  } | null> {
-    try {
-      const windowContext = await getActiveWindow()
-      if (!windowContext) return null
-      return {
-        title: windowContext.title || '',
-        appName: windowContext.appName || '',
-      }
-    } catch (error) {
-      log.error('[ContextGrabber] Error getting window context:', error)
-      return null
-    }
-  }
-
-  private async getToneForCurrentApp(
-    appName?: string,
-    browserDomain?: string | null,
-  ): Promise<Tone | null> {
-    try {
-      const userId = getCurrentUserId() || DEFAULT_LOCAL_USER_ID
-      if (!appName) return null
-
-      console.log(
-        '[ContextGrabber] Looking for tone - userId:',
-        userId,
-        '| appName:',
-        appName,
-        '| browserDomain:',
-        browserDomain,
-      )
-
-      let appTarget: AppTarget | null = null
-
-      if (browserDomain) {
-        appTarget = await AppTargetTable.findByDomain(browserDomain, userId)
-        console.log('[ContextGrabber] Domain match result:', appTarget?.name)
-      }
-
-      if (!appTarget) {
-        const appId = normalizeAppTargetId(appName)
-        appTarget = await AppTargetTable.findById(appId, userId)
-        console.log('[ContextGrabber] App match result:', appTarget?.name)
-      }
-
-      console.log(
-        '[ContextGrabber] Final AppTarget found:',
-        appTarget?.name,
-        '| toneId:',
-        appTarget?.toneId,
-      )
-
-      const toneId = appTarget?.toneId || DEFAULT_TONE_ID
-      const tone = await ToneTable.findById(toneId)
-      console.log('[ContextGrabber] Tone loaded:', tone?.name)
-
-      return tone
-    } catch (error) {
-      log.error('[ContextGrabber] Error getting tone:', error)
-      return null
     }
   }
 

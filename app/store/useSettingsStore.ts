@@ -28,6 +28,11 @@ interface SettingsState {
   microphoneDeviceId: string
   microphoneName: string
   keyboardShortcuts: KeyboardShortcutConfig[]
+  translationTargetLanguage: string
+  translationType: 'one_way' | 'two_way'
+  translationLanguageA: string
+  translationLanguageB: string
+  contextAwarenessCaptureMode: 'fullscreen' | 'active_window'
   setShareAnalytics: (share: boolean) => void
   setLaunchAtLogin: (launch: boolean) => void
   setShowItoBarAlways: (show: boolean) => void
@@ -35,9 +40,15 @@ interface SettingsState {
   setInteractionSounds: (enabled: boolean) => void
   setMuteAudioWhenDictating: (enabled: boolean) => void
   setMicrophoneDeviceId: (deviceId: string, name: string) => void
-  createKeyboardShortcut: (mode: ItoMode) => ShortcutResult
+  setTranslationTargetLanguage: (lang: string) => void
+  setTranslationType: (type: 'one_way' | 'two_way') => void
+  setTranslationLanguageA: (lang: string) => void
+  setTranslationLanguageB: (lang: string) => void
+  setContextAwarenessCaptureMode: (mode: 'fullscreen' | 'active_window') => void
+  createKeyboardShortcut: (mode: ItoMode, isAgent?: boolean) => ShortcutResult
   removeKeyboardShortcut: (shortcutId: string) => void
   getItoModeShortcuts: (mode: ItoMode) => KeyboardShortcutConfig[]
+  getAgentShortcuts: () => KeyboardShortcutConfig[]
   updateKeyboardShortcut: (
     shortcutId: string,
     keys: KeyName[],
@@ -70,7 +81,25 @@ const getInitialState = () => {
         mode: ItoMode.TRANSCRIBE,
         id: crypto.randomUUID(),
       },
+      {
+        keys: ITO_MODE_SHORTCUT_DEFAULTS[ItoMode.CONTEXT_AWARENESS],
+        mode: ItoMode.CONTEXT_AWARENESS,
+        id: crypto.randomUUID(),
+      },
+      {
+        keys: [],
+        mode: ItoMode.TRANSCRIBE,
+        isAgent: true,
+        id: crypto.randomUUID(),
+      },
     ],
+    translationTargetLanguage:
+      storedSettings?.translationTargetLanguage ?? 'en',
+    translationType: storedSettings?.translationType ?? 'one_way',
+    translationLanguageA: storedSettings?.translationLanguageA ?? 'fr',
+    translationLanguageB: storedSettings?.translationLanguageB ?? 'en',
+    contextAwarenessCaptureMode:
+      storedSettings?.contextAwarenessCaptureMode ?? 'fullscreen',
     firstName: storedSettings?.firstName ?? '',
     lastName: storedSettings?.lastName ?? '',
     email: storedSettings?.email ?? '',
@@ -177,13 +206,25 @@ export const useSettingsStore = create<SettingsState>(set => {
       set(partialState)
       syncToStore(partialState)
     },
-    createKeyboardShortcut: (mode: ItoMode): ShortcutResult => {
+    setTranslationTargetLanguage: createSetter(
+      'translationTargetLanguage',
+      'keyboard',
+    ),
+    setTranslationType: createSetter('translationType', 'keyboard'),
+    setTranslationLanguageA: createSetter('translationLanguageA', 'keyboard'),
+    setTranslationLanguageB: createSetter('translationLanguageB', 'keyboard'),
+    setContextAwarenessCaptureMode: createSetter(
+      'contextAwarenessCaptureMode',
+      'keyboard',
+    ),
+    createKeyboardShortcut: (mode: ItoMode, isAgent?: boolean): ShortcutResult => {
       const currentShortcuts = useSettingsStore.getState().keyboardShortcuts
 
-      const newShortcut = {
+      const newShortcut: KeyboardShortcutConfig = {
         keys: [],
         mode,
         id: crypto.randomUUID(),
+        ...(isAgent ? { isAgent: true } : {}),
       }
 
       const newShortcuts = [...currentShortcuts, newShortcut]
@@ -229,7 +270,11 @@ export const useSettingsStore = create<SettingsState>(set => {
     },
     getItoModeShortcuts: (mode: ItoMode) => {
       const { keyboardShortcuts } = useSettingsStore.getState()
-      return keyboardShortcuts.filter(ks => ks.mode === mode)
+      return keyboardShortcuts.filter(ks => ks.mode === mode && !ks.isAgent)
+    },
+    getAgentShortcuts: () => {
+      const { keyboardShortcuts } = useSettingsStore.getState()
+      return keyboardShortcuts.filter(ks => ks.isAgent === true)
     },
     updateKeyboardShortcut: async (
       shortcutId: string,
@@ -322,7 +367,9 @@ if (typeof window !== 'undefined' && window.api?.dock?.getVisibility) {
       window.api?.dock
         ?.getVisibility()
         .then(dockSettings => {
-          const storedSettings = window.electron?.store?.get(STORE_KEYS.SETTINGS)
+          const storedSettings = window.electron?.store?.get(
+            STORE_KEYS.SETTINGS,
+          )
           if (dockSettings.isVisible !== storedSettings?.showAppInDock) {
             useSettingsStore.getState().setShowAppInDock(dockSettings.isVisible)
           }

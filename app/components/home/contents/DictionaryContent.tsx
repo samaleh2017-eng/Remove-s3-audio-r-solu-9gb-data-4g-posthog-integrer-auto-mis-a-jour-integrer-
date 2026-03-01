@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowUp, Pencil, Trash, Search, Sort, Refresh } from '@mynaui/icons-react'
+import {
+  ArrowUp,
+  Pencil,
+  Trash,
+  Search,
+  Sort,
+  Refresh,
+} from '@mynaui/icons-react'
 import { Tooltip, TooltipTrigger, TooltipContent } from '../../ui/tooltip'
 import { Switch } from '../../ui/switch'
 import { StatusIndicator } from '../../ui/status-indicator'
@@ -278,16 +285,17 @@ export default function DictionaryContent() {
       if (!searchQuery) return true
       const q = searchQuery.toLowerCase()
       if (entry.type === 'replacement') {
-        return entry.from.toLowerCase().includes(q) || entry.to.toLowerCase().includes(q)
+        return (
+          entry.from.toLowerCase().includes(q) ||
+          entry.to.toLowerCase().includes(q)
+        )
       }
       return entry.content.toLowerCase().includes(q)
     })
     .sort((a, b) => {
       const textA = a.type === 'replacement' ? a.from : a.content
       const textB = b.type === 'replacement' ? b.from : b.content
-      return sortAsc
-        ? textA.localeCompare(textB)
-        : textB.localeCompare(textA)
+      return sortAsc ? textA.localeCompare(textB) : textB.localeCompare(textA)
     })
 
   const noEntries = entries.length === 0
@@ -295,14 +303,12 @@ export default function DictionaryContent() {
   return (
     <div
       ref={containerRef}
-      className="w-full px-12 max-h-160 overflow-y-auto relative"
-      style={{
-        msOverflowStyle: 'none',
-        scrollbarWidth: 'none',
-      }}
+      className="w-full h-full px-12 overflow-y-auto relative"
     >
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-[30px] font-semibold tracking-tight font-sans">Dictionary</h1>
+        <h1 className="text-[30px] font-semibold tracking-tight font-sans">
+          Dictionary
+        </h1>
         <button
           onClick={handleAddNew}
           className="bg-foreground text-white px-5 py-2.5 rounded-[var(--radius-lg)] text-sm font-medium hover:bg-warm-800 transition-colors cursor-pointer"
@@ -349,7 +355,7 @@ export default function DictionaryContent() {
             type="text"
             placeholder="Search dictionary..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={e => setSearchQuery(e.target.value)}
             className="w-full px-4 py-2.5 border border-[var(--border)] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ring)] bg-transparent placeholder-warm-400"
             autoFocus
           />

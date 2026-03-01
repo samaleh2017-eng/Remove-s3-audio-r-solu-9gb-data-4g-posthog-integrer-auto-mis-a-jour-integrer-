@@ -204,13 +204,18 @@ export function getPromptForMode(
     case ItoMode.EDIT:
       basePrompt = ITO_MODE_PROMPT[ItoMode.EDIT]
       break
+    case ItoMode.TRANSLATE:
+      basePrompt = ITO_MODE_PROMPT[ItoMode.TRANSLATE]
+      break
+    case ItoMode.CONTEXT_AWARENESS:
+      basePrompt = ITO_MODE_PROMPT[ItoMode.CONTEXT_AWARENESS]
+      break
     case ItoMode.TRANSCRIBE:
+    default:
       basePrompt =
         advancedSettingsHeaders.transcriptionPrompt ||
         ITO_MODE_PROMPT[ItoMode.TRANSCRIBE]
       break
-    default:
-      basePrompt = ITO_MODE_PROMPT[ItoMode.TRANSCRIBE]
   }
 
   if (tonePrompt && tonePrompt.trim()) {

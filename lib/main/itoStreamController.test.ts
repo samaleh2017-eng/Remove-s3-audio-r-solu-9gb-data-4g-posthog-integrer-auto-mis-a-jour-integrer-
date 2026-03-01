@@ -113,6 +113,9 @@ const mockContextGrabber = {
         grammarServiceEnabled: false,
         macosAccessibilityContextEnabled: true,
       },
+      screenCaptureBase64: null,
+      screenThumbnailBase64: null,
+      contextSource: null,
     }),
   ),
 }

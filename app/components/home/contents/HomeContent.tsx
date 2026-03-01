@@ -1,9 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  InfoCircle,
-  Copy,
-  Check,
-} from '@mynaui/icons-react'
+import { InfoCircle, Copy, Check } from '@mynaui/icons-react'
 import { EXTERNAL_LINKS } from '@/lib/constants/external-links'
 import { useSettingsStore } from '../../../store/useSettingsStore'
 import { Tooltip, TooltipTrigger, TooltipContent } from '../../ui/tooltip'
@@ -519,7 +515,7 @@ export default function HomeContent({
       </div>
 
       {/* Scrollable Recent Activity Section */}
-      <div className="flex-1 px-12 max-w-4xl mx-auto w-full overflow-y-auto scrollbar-hide">
+      <div className="flex-1 px-12 max-w-4xl mx-auto w-full overflow-y-auto">
         {loading ? (
           <div className="bg-white dark:bg-[var(--card)] rounded-[var(--radius-lg)] border border-[var(--border)] p-8 text-center text-[var(--color-subtext)]">
             Loading recent activity...
@@ -659,7 +655,7 @@ export default function HomeContent({
             </p>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-[var(--color-surface)] rounded-[var(--radius-lg)] p-5">
+              <div className="bg-[#F3F2F1] rounded-[var(--radius-lg)] p-5">
                 <div className="text-xs font-semibold tracking-wider text-[var(--color-subtext)] uppercase mb-3">
                   Daily Streak
                 </div>
@@ -678,7 +674,7 @@ export default function HomeContent({
                 </div>
               </div>
 
-              <div className="bg-[var(--color-surface)] rounded-[var(--radius-lg)] p-5">
+              <div className="bg-[#F3F2F1] rounded-[var(--radius-lg)] p-5">
                 <div className="text-xs font-semibold tracking-wider text-[var(--color-subtext)] uppercase mb-3">
                   Average Speed
                 </div>
@@ -690,7 +686,7 @@ export default function HomeContent({
                 </div>
               </div>
 
-              <div className="bg-[var(--color-surface)] rounded-[var(--radius-lg)] p-5">
+              <div className="bg-[#F3F2F1] rounded-[var(--radius-lg)] p-5">
                 <div className="text-xs font-semibold tracking-wider text-[var(--color-subtext)] uppercase mb-3">
                   Total Words Dictated
                 </div>
@@ -706,7 +702,7 @@ export default function HomeContent({
                 </div>
               </div>
 
-              <div className="bg-[var(--color-surface)] rounded-[var(--radius-lg)] p-5">
+              <div className="bg-[#F3F2F1] rounded-[var(--radius-lg)] p-5">
                 <div className="text-xs font-semibold tracking-wider text-[var(--color-subtext)] uppercase mb-3">
                   Total Interactions
                 </div>

@@ -2,7 +2,11 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Check } from '@mynaui/icons-react'
 
 // AnimatedCheck component for check mark animation
-const AnimatedCheck = React.memo(function AnimatedCheck({ trigger }: { trigger: boolean }) {
+const AnimatedCheck = React.memo(function AnimatedCheck({
+  trigger,
+}: {
+  trigger: boolean
+}) {
   const [showWidth, setShowWidth] = useState(false)
   const [showOpacity, setShowOpacity] = useState(false)
   const checkRef = useRef<HTMLDivElement>(null)

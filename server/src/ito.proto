@@ -58,6 +58,8 @@ message Empty {}
 enum ItoMode {
   TRANSCRIBE = 0;
   EDIT = 1;
+  TRANSLATE = 2;
+  CONTEXT_AWARENESS = 3;
 }
 
 // Error Types
@@ -98,6 +100,7 @@ message ContextInfo {
   optional string browser_url = 5;
   optional string browser_domain = 6;
   optional string tone_prompt = 7;
+  optional bytes screen_capture = 8;
 }
 
 message ReplacementEntry {

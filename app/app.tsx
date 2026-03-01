@@ -14,6 +14,7 @@ import { SupabaseProvider } from '@/app/components/auth/SupabaseProvider'
 import { usePerformanceStore } from '@/app/store/usePerformanceStore'
 import { PerformanceProvider } from '@/app/performance/performance.context'
 import { BillingProvider } from '@/app/contexts/BillingContext'
+import UpdateOverlay from '@/app/components/updates/UpdateOverlay'
 import { useDeviceChangeListener } from './hooks/useDeviceChangeListener'
 import { verifyStoredMicrophone } from './media/microphone'
 import { performanceAutotuner } from './performance/performance.autotune'
@@ -98,6 +99,7 @@ export default function App() {
               path="/"
               element={
                 <>
+                  <UpdateOverlay />
                   <WindowContextProvider
                     titlebar={{ title: 'Ito', icon: appIcon }}
                   >

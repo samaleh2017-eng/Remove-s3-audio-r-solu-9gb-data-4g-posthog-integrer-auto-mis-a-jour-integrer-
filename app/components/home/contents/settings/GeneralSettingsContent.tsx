@@ -3,9 +3,17 @@ import { Switch } from '@/app/components/ui/switch'
 import { useSettingsStore } from '@/app/store/useSettingsStore'
 import { useWindowContext } from '@/app/components/window/WindowContext'
 
-function SettingRow({ children, last }: { children: ReactNode; last?: boolean }) {
+function SettingRow({
+  children,
+  last,
+}: {
+  children: ReactNode
+  last?: boolean
+}) {
   return (
-    <div className={`flex items-center justify-between py-4 px-5 ${!last ? 'border-b border-[#EBEBEB]' : ''}`}>
+    <div
+      className={`flex items-center justify-between py-4 px-5 ${!last ? 'border-b border-[#EBEBEB]' : ''}`}
+    >
       {children}
     </div>
   )
@@ -72,10 +80,12 @@ export default function GeneralSettingsContent() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl bg-[#F2F2F2]">
+      <div className="rounded-xl bg-white">
         <SettingRow>
           <div>
-            <div className="text-sm font-medium text-[#1f1f1f]">Share analytics</div>
+            <div className="text-sm font-medium text-[#1f1f1f]">
+              Share analytics
+            </div>
             <div className="text-[13px] text-[#888]">
               Share anonymous usage data to help us improve Ito.
             </div>
@@ -87,15 +97,14 @@ export default function GeneralSettingsContent() {
         </SettingRow>
         <SettingRow>
           <div>
-            <div className="text-sm font-medium text-[#1f1f1f]">Launch at Login</div>
+            <div className="text-sm font-medium text-[#1f1f1f]">
+              Launch at Login
+            </div>
             <div className="text-[13px] text-[#888]">
               Open Ito automatically when your computer starts.
             </div>
           </div>
-          <Switch
-            checked={launchAtLogin}
-            onCheckedChange={setLaunchAtLogin}
-          />
+          <Switch checked={launchAtLogin} onCheckedChange={setLaunchAtLogin} />
         </SettingRow>
         <SettingRow last={!isDarwin}>
           <div>
@@ -114,7 +123,9 @@ export default function GeneralSettingsContent() {
         {isDarwin && (
           <SettingRow last>
             <div>
-              <div className="text-sm font-medium text-[#1f1f1f]">Show app in dock</div>
+              <div className="text-sm font-medium text-[#1f1f1f]">
+                Show app in dock
+              </div>
               <div className="text-[13px] text-[#888]">
                 Show the Ito app in the dock for quick access.
               </div>
@@ -130,10 +141,12 @@ export default function GeneralSettingsContent() {
       <div className="text-xs font-semibold tracking-[1.5px] text-[#999] uppercase">
         Log Management
       </div>
-      <div className="rounded-xl bg-[#F2F2F2]">
+      <div className="rounded-xl bg-white">
         <SettingRow>
           <div>
-            <div className="text-sm font-medium text-[#1f1f1f]">Download Logs</div>
+            <div className="text-sm font-medium text-[#1f1f1f]">
+              Download Logs
+            </div>
             <div className="text-[13px] text-[#888]">
               Export your local logs to a file for troubleshooting.
             </div>

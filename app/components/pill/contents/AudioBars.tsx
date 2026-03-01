@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { usePerformanceStore } from '../../../store/usePerformanceStore'
-import { BAR_COUNT, BAR_WIDTH, BAR_SPACING, MIN_BAR_HEIGHT, MAX_BAR_HEIGHT } from './AudioBarsBase'
+import {
+  BAR_COUNT,
+  BAR_WIDTH,
+  BAR_SPACING,
+  MIN_BAR_HEIGHT,
+  MAX_BAR_HEIGHT,
+} from './AudioBarsBase'
 
 export const AudioVisualizer: React.FC<{
   audioLevel: number
@@ -10,7 +16,7 @@ export const AudioVisualizer: React.FC<{
   const activeTier = usePerformanceStore(s => s.activeTier)
   const phases = useMemo(
     () => Array.from({ length: BAR_COUNT }, (_, i) => i * 0.4),
-    []
+    [],
   )
   const [time, setTime] = useState(0)
   const rafRef = useRef<number>(0)
@@ -44,7 +50,8 @@ export const AudioVisualizer: React.FC<{
       const centerBoost = 1 - centerDist * 0.4
       return Math.max(
         MIN_BAR_HEIGHT,
-        MIN_BAR_HEIGHT + boosted * wave * centerBoost * (MAX_BAR_HEIGHT - MIN_BAR_HEIGHT)
+        MIN_BAR_HEIGHT +
+          boosted * wave * centerBoost * (MAX_BAR_HEIGHT - MIN_BAR_HEIGHT),
       )
     })
   }, [isActive, audioLevel, time, phases])
@@ -52,13 +59,15 @@ export const AudioVisualizer: React.FC<{
   const gpuAccel = activeTier !== 'low'
 
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: BAR_SPACING,
-      height: MAX_BAR_HEIGHT,
-      ...(gpuAccel && { willChange: 'contents', transform: 'translateZ(0)' }),
-    }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: BAR_SPACING,
+        height: MAX_BAR_HEIGHT,
+        ...(gpuAccel && { willChange: 'contents', transform: 'translateZ(0)' }),
+      }}
+    >
       {heights.map((h, i) => (
         <div
           key={i}
@@ -77,7 +86,14 @@ export const AudioVisualizer: React.FC<{
 }
 
 export const StaticVisualizer: React.FC<{ color: string }> = ({ color }) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: BAR_SPACING, height: MAX_BAR_HEIGHT }}>
+  <div
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: BAR_SPACING,
+      height: MAX_BAR_HEIGHT,
+    }}
+  >
     {Array.from({ length: BAR_COUNT }).map((_, i) => (
       <div
         key={i}

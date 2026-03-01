@@ -9,27 +9,26 @@ export const IPC_EVENTS = {
   SETTINGS_UPDATE: 'settings-update',
   ONBOARDING_UPDATE: 'onboarding-update',
   USER_AUTH_UPDATE: 'user-auth-update',
-  STREAMING_TEXT_UPDATE: 'streaming-text-update',
 } as const
 
 // IPC Payload Types
 export interface RecordingStatePayload {
   isRecording: boolean
   mode?: ItoMode
+  appTargetName?: string | null
+  appTargetIconBase64?: string | null
+  contextSource?: 'screen' | 'selection' | null
+  screenThumbnailBase64?: string | null
 }
 
 export interface ProcessingStatePayload {
   isProcessing: boolean
   mode?: ItoMode
+  isAgent?: boolean
 }
 
 export interface VolumeUpdatePayload {
   volume: number
-}
-
-export interface StreamingTextPayload {
-  text: string
-  isFinal: boolean
 }
 
 // Generic IPC Response Types

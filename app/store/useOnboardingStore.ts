@@ -90,7 +90,8 @@ const getInitialState = () => {
 const syncToStore = (state: Partial<OnboardingState>) => {
   const update: Record<string, unknown> = {}
   if ('onboardingStep' in state) update.onboardingStep = state.onboardingStep
-  if ('onboardingCompleted' in state) update.onboardingCompleted = state.onboardingCompleted
+  if ('onboardingCompleted' in state)
+    update.onboardingCompleted = state.onboardingCompleted
   if (Object.keys(update).length === 0) return
   debouncedSyncToStore(STORE_KEYS.ONBOARDING, update)
 

@@ -4,13 +4,17 @@ import { getLlmProvider } from '../clients/providerUtils.js'
 import { DEFAULT_ADVANCED_SETTINGS } from '../constants/generated-defaults.js'
 import { ItoMode } from '../generated/ito_pb.js'
 import { getPromptForMode, createUserPromptWithContext } from './ito/helpers.js'
+import { getTranslationBasePrompt, getTranslationTonePrompt, getLanguageNameFromCode } from './ito/translationHelpers.js'
 import { applyReplacements, filterLeakedContext } from './ito/llmUtils.js'
+import { guardLanguage, detectTextLanguage } from './ito/languageGuard.js'
 import type { ItoContext } from './ito/types.js'
 import type { SupabaseJwtPayload } from '../auth/supabaseJwt.js'
 
 interface AdjustTranscriptBody {
   transcript: string
-  mode: 'transcribe' | 'edit'
+  mode: 'transcribe' | 'edit' | 'translate' | 'context_awareness'
+  targetLanguage?: string
+  screenshotBase64?: string
   context?: {
     windowTitle?: string
     appName?: string
@@ -88,7 +92,10 @@ export const registerSonioxRoutes = async (
         return
       }
 
-      const mode = body.mode === 'edit' ? ItoMode.EDIT : ItoMode.TRANSCRIBE
+      const mode = body.mode === 'edit' ? ItoMode.EDIT
+                   : body.mode === 'translate' ? ItoMode.TRANSLATE
+                   : body.mode === 'context_awareness' ? ItoMode.CONTEXT_AWARENESS
+                   : ItoMode.TRANSCRIBE
 
       const windowContext: ItoContext = {
         windowTitle: body.context?.windowTitle || '',
@@ -98,6 +105,7 @@ export const registerSonioxRoutes = async (
         browserDomain: body.context?.browserDomain || '',
         tonePrompt: body.context?.tonePrompt || '',
         userDetailsContext: body.context?.userDetailsContext || '',
+        screenCaptureBase64: body.screenshotBase64 || '',
       }
 
       const advancedSettings = {
@@ -115,14 +123,108 @@ export const registerSonioxRoutes = async (
       const hasTonePrompt = windowContext.tonePrompt && windowContext.tonePrompt.trim() !== ''
       const basePrompt = getPromptForMode(mode, advancedSettings)
 
-      const systemPrompt = hasTonePrompt
-        ? windowContext.tonePrompt
-        : basePrompt
+      let systemPrompt: string
+      if (mode === ItoMode.TRANSLATE) {
+        const targetLang = body.targetLanguage || 'en'
+        systemPrompt = hasTonePrompt
+          ? getTranslationTonePrompt(windowContext.tonePrompt, targetLang)
+          : getTranslationBasePrompt(basePrompt, targetLang)
+      } else {
+        systemPrompt = hasTonePrompt ? windowContext.tonePrompt : basePrompt
+      }
 
       const userPrompt = createUserPromptWithContext(trimmedTranscript, windowContext)
 
+      if (mode === ItoMode.CONTEXT_AWARENESS && windowContext.screenCaptureBase64) {
+        console.log(
+          `[adjust-transcript] CONTEXT_AWARENESS with screenshot (${Math.round(windowContext.screenCaptureBase64.length / 1024)}KB), voice command: "${trimmedTranscript}"`,
+        )
+
+        const { geminiClient } = await import('../clients/geminiClient.js')
+
+        if (!geminiClient) {
+          console.error(
+            '[adjust-transcript] CRITICAL: geminiClient is null — GEMINI_API_KEY likely not set. Vision analysis impossible.',
+          )
+        }
+
+        if (geminiClient && typeof geminiClient.analyzeScreenContext === 'function') {
+          const contextParts = [
+            windowContext.userDetailsContext && `INFORMATIONS UTILISATEUR:\n${windowContext.userDetailsContext}`,
+            windowContext.appName && `Application active: ${windowContext.appName}`,
+            windowContext.windowTitle && `Titre de fenêtre: ${windowContext.windowTitle}`,
+            windowContext.browserUrl && `URL: ${windowContext.browserUrl}`,
+          ].filter(Boolean).join('\n')
+
+          const baseSystemPrompt = hasTonePrompt
+            ? windowContext.tonePrompt
+            : getPromptForMode(mode, advancedSettings)
+
+          const enrichedSystemPrompt = contextParts
+            ? `${baseSystemPrompt}\n\nCONTEXTE ADDITIONNEL:\n${contextParts}`
+            : baseSystemPrompt
+
+          const MAX_VISION_RETRIES = 2
+          let lastVisionError: unknown = null
+
+          for (let attempt = 1; attempt <= MAX_VISION_RETRIES; attempt++) {
+            try {
+              console.log(
+                `[adjust-transcript] Gemini Vision attempt ${attempt}/${MAX_VISION_RETRIES}`,
+              )
+
+              const visionResult = await geminiClient.analyzeScreenContext(
+                windowContext.screenCaptureBase64,
+                trimmedTranscript,
+                enrichedSystemPrompt,
+                {
+                  temperature: advancedSettings.llmTemperature,
+                  model: 'gemini-2.5-flash',
+                },
+              )
+
+              console.log(
+                `[adjust-transcript] Vision analysis succeeded on attempt ${attempt}: ${visionResult.length} chars`,
+              )
+              reply.send({ success: true, transcript: visionResult.trim() })
+              return
+            } catch (visionError: any) {
+              lastVisionError = visionError
+              console.error(
+                `[adjust-transcript] Vision attempt ${attempt}/${MAX_VISION_RETRIES} failed:`,
+                visionError?.message || visionError,
+              )
+
+              if (attempt < MAX_VISION_RETRIES) {
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt))
+              }
+            }
+          }
+
+          console.error(
+            `[adjust-transcript] All ${MAX_VISION_RETRIES} vision attempts failed. Last error:`,
+            lastVisionError,
+          )
+        }
+
+        console.warn(
+          '[adjust-transcript] CONTEXT_AWARENESS: Vision failed or unavailable, falling through to text-only (degraded mode)',
+        )
+
+        systemPrompt = getPromptForMode(ItoMode.EDIT, advancedSettings)
+      }
+
+      let finalUserPrompt = userPrompt
+      if (mode === ItoMode.TRANSLATE) {
+        const targetLang = body.targetLanguage || 'en'
+        const langName = getLanguageNameFromCode(targetLang)
+        finalUserPrompt = `[LANGUAGE REMINDER: Output MUST be in ${langName}. Ignore the language of context metadata below.]\n${userPrompt}`
+      } else {
+        finalUserPrompt = `[LANGUAGE RULE: Your output MUST be in the SAME language as the user's dictated text below. Do NOT translate it. Do NOT switch to the language of the context metadata. Preserve the original language of the spoken text exactly.]\n${userPrompt}`
+      }
+
       const llmProvider = getLlmProvider(advancedSettings.llmProvider)
-      let adjustedTranscript = await llmProvider.adjustTranscript(userPrompt, {
+      let adjustedTranscript = await llmProvider.adjustTranscript(finalUserPrompt, {
         temperature: advancedSettings.llmTemperature,
         model: advancedSettings.llmModel,
         prompt: systemPrompt,
@@ -133,6 +235,23 @@ export const registerSonioxRoutes = async (
       const replacements = body.replacements || []
       if (replacements.length > 0) {
         adjustedTranscript = applyReplacements(adjustedTranscript, replacements)
+      }
+
+      const expectedLang = mode === ItoMode.TRANSLATE
+        ? (body.targetLanguage || 'en')
+        : detectTextLanguage(trimmedTranscript)
+
+      if (expectedLang) {
+        adjustedTranscript = await guardLanguage(adjustedTranscript, {
+          expectedLanguage: expectedLang,
+          llmProvider,
+          llmOptions: {
+            temperature: advancedSettings.llmTemperature,
+            model: advancedSettings.llmModel,
+            prompt: systemPrompt,
+          },
+          userPrompt: finalUserPrompt,
+        })
       }
 
       reply.send({

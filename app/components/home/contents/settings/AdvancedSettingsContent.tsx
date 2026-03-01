@@ -392,7 +392,7 @@ export default function AdvancedSettingsContent() {
   ])
 
   return (
-    <div className="max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-warm-500 scrollbar-track-transparent">
+    <div>
       {/* LLM Settings Section */}
       <div className="space-y-6">
         <div>
@@ -402,7 +402,7 @@ export default function AdvancedSettingsContent() {
             </h3>
             <button
               onClick={handleRestoreDefaults}
-              className="px-3 py-1 text-sm text-[var(--color-subtext)] hover:text-foreground border border-[var(--border)] rounded-md hover:bg-[var(--color-surface)] transition-colors"
+              className="px-3 py-1 text-sm text-[var(--color-subtext)] hover:text-foreground border border-[var(--border)] rounded-md hover:bg-[#F3F2F1] transition-colors"
             >
               Restore Defaults
             </button>
