@@ -45,9 +45,10 @@ interface SettingsState {
   setTranslationLanguageA: (lang: string) => void
   setTranslationLanguageB: (lang: string) => void
   setContextAwarenessCaptureMode: (mode: 'fullscreen' | 'active_window') => void
-  createKeyboardShortcut: (mode: ItoMode) => ShortcutResult
+  createKeyboardShortcut: (mode: ItoMode, isAgent?: boolean) => ShortcutResult
   removeKeyboardShortcut: (shortcutId: string) => void
   getItoModeShortcuts: (mode: ItoMode) => KeyboardShortcutConfig[]
+  getAgentShortcuts: () => KeyboardShortcutConfig[]
   updateKeyboardShortcut: (
     shortcutId: string,
     keys: KeyName[],
@@ -83,6 +84,12 @@ const getInitialState = () => {
       {
         keys: ITO_MODE_SHORTCUT_DEFAULTS[ItoMode.CONTEXT_AWARENESS],
         mode: ItoMode.CONTEXT_AWARENESS,
+        id: crypto.randomUUID(),
+      },
+      {
+        keys: [],
+        mode: ItoMode.TRANSCRIBE,
+        isAgent: true,
         id: crypto.randomUUID(),
       },
     ],
@@ -210,13 +217,14 @@ export const useSettingsStore = create<SettingsState>(set => {
       'contextAwarenessCaptureMode',
       'keyboard',
     ),
-    createKeyboardShortcut: (mode: ItoMode): ShortcutResult => {
+    createKeyboardShortcut: (mode: ItoMode, isAgent?: boolean): ShortcutResult => {
       const currentShortcuts = useSettingsStore.getState().keyboardShortcuts
 
-      const newShortcut = {
+      const newShortcut: KeyboardShortcutConfig = {
         keys: [],
         mode,
         id: crypto.randomUUID(),
+        ...(isAgent ? { isAgent: true } : {}),
       }
 
       const newShortcuts = [...currentShortcuts, newShortcut]
@@ -262,7 +270,11 @@ export const useSettingsStore = create<SettingsState>(set => {
     },
     getItoModeShortcuts: (mode: ItoMode) => {
       const { keyboardShortcuts } = useSettingsStore.getState()
-      return keyboardShortcuts.filter(ks => ks.mode === mode)
+      return keyboardShortcuts.filter(ks => ks.mode === mode && !ks.isAgent)
+    },
+    getAgentShortcuts: () => {
+      const { keyboardShortcuts } = useSettingsStore.getState()
+      return keyboardShortcuts.filter(ks => ks.isAgent === true)
     },
     updateKeyboardShortcut: async (
       shortcutId: string,

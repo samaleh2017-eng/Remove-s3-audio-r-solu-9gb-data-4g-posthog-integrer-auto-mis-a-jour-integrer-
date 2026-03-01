@@ -70,6 +70,7 @@ function LanguageSelect({
 export default function KeyboardSettingsContent() {
   const {
     getItoModeShortcuts,
+    getAgentShortcuts,
     translationTargetLanguage,
     translationType,
     translationLanguageA,
@@ -87,6 +88,7 @@ export default function KeyboardSettingsContent() {
   const contextAwarenessShortcuts = getItoModeShortcuts(
     ItoMode.CONTEXT_AWARENESS,
   )
+  const agentShortcuts = getAgentShortcuts()
 
   return (
     <>
@@ -148,6 +150,23 @@ export default function KeyboardSettingsContent() {
           <MultiShortcutEditor
             shortcuts={contextAwarenessShortcuts}
             mode={ItoMode.CONTEXT_AWARENESS}
+          />
+        </div>
+        <div className="flex gap-4 justify-between py-4 px-5 border-t border-[#EBEBEB]">
+          <div className="w-1/3">
+            <div className="text-sm font-medium text-[#1f1f1f] mb-2">
+              Agent Mode Shortcut
+            </div>
+            <div className="text-[13px] text-[#888]">
+              Set the shortcut for Agent Mode. Hold the shortcut, speak your
+              request, and the agent reads your screen context, drafts a
+              response, and pastes it directly into the focused text field.
+            </div>
+          </div>
+          <MultiShortcutEditor
+            shortcuts={agentShortcuts}
+            mode={ItoMode.TRANSCRIBE}
+            isAgent
           />
         </div>
       </div>

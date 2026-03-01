@@ -13,11 +13,13 @@ export interface KeyboardShortcutConfig {
   id: string
   keys: KeyName[]
   mode: ItoMode
+  isAgent?: boolean
 }
 
 type Props = {
-  shortcuts: KeyboardShortcutConfig[] // persisted rows
+  shortcuts: KeyboardShortcutConfig[]
   mode: ItoMode
+  isAgent?: boolean
   className?: string
   keySize?: number
   maxShortcutsPerMode?: number
@@ -28,6 +30,7 @@ const MAX_KEYS_PER_SHORTCUT = 5
 export default function MultiShortcutEditor({
   shortcuts,
   mode,
+  isAgent,
   className = '',
   maxShortcutsPerMode = 5,
 }: Props) {
@@ -38,12 +41,16 @@ export default function MultiShortcutEditor({
   } = useSettingsStore()
 
   // global editing lock
-  const editorKey = useMemo(() => `multi-shortcut-editor:${mode}`, [mode])
+  const editorKey = useMemo(() => isAgent ? 'multi-shortcut-editor:agent' : `multi-shortcut-editor:${mode}`, [mode, isAgent])
   const { start, stop, activeEditor } = useShortcutEditingStore()
 
   const rows = useMemo(
-    () => (mode == null ? shortcuts : shortcuts.filter(s => s.mode === mode)),
-    [shortcuts, mode],
+    () => {
+      if (isAgent) return shortcuts.filter(s => s.isAgent === true)
+      if (mode == null) return shortcuts
+      return shortcuts.filter(s => s.mode === mode && !s.isAgent)
+    },
+    [shortcuts, mode, isAgent],
   )
   const isAtLimit = rows.length >= maxShortcutsPerMode
   const isMinimum = rows.length <= 1
@@ -90,7 +97,7 @@ export default function MultiShortcutEditor({
   }
 
   const addNew = () => {
-    const result = createKeyboardShortcut(mode)
+    const result = createKeyboardShortcut(mode, isAgent)
     if (!result.success && result.error) {
       setError(getErrorMessage(result.error, result.errorMessage))
       return

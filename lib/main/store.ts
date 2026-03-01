@@ -311,6 +311,26 @@ const migrations: Migration[] = [
       }
     },
   },
+  {
+    id: '2025-09-01-add-agent-shortcut',
+    run: s => {
+      const settings: any = s.get('settings') || {}
+      const shortcuts = settings.keyboardShortcuts
+      if (!Array.isArray(shortcuts)) return
+      const hasAgent = shortcuts.some((ks: any) => ks.isAgent === true)
+      if (!hasAgent) {
+        s.set('settings.keyboardShortcuts', [
+          ...shortcuts,
+          {
+            id: crypto.randomUUID(),
+            keys: [],
+            mode: ItoMode.TRANSCRIBE,
+            isAgent: true,
+          },
+        ])
+      }
+    },
+  },
 ]
 
 // ---------- Migration runner ----------
