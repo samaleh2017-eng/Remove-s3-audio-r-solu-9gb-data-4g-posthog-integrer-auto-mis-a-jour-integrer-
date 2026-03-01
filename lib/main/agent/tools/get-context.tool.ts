@@ -14,71 +14,122 @@ export class GetContextTool extends BaseTool<Record<string, unknown>> {
   readonly parameters = undefined
 
   protected async execInternal(): Promise<ToolResult> {
+    const platform = process.platform
+    console.info(`[GetContextTool] Starting context gathering (platform=${platform})`)
+
     const cached = activeWindowMonitor.getCachedState()
-    const activeWindow = cached?.window || (await getActiveWindow().catch(() => null))
+    console.info(
+      `[GetContextTool] Cached window state: ${cached ? `app="${cached.window?.appName}", title="${cached.window?.title}"` : 'none'}`,
+    )
+
+    let activeWindow = cached?.window || null
+    if (!activeWindow) {
+      console.info('[GetContextTool] No cached window, fetching active window...')
+      try {
+        activeWindow = await getActiveWindow()
+        console.info(
+          `[GetContextTool] Active window: app="${activeWindow?.appName}", title="${activeWindow?.title}"`,
+        )
+      } catch (e) {
+        console.warn('[GetContextTool] getActiveWindow() failed:', e)
+        activeWindow = null
+      }
+    }
 
     let textContent: string | null = null
     let selectedText: string | null = null
 
-    if (process.platform === 'darwin' && macOSAccessibilityContextProvider.isRunning()) {
-      try {
-        const result = await macOSAccessibilityContextProvider.getCursorContext({
-          maxCharsBefore: 2000,
-          maxCharsAfter: 1000,
-          timeout: 800,
-          debug: false,
-        })
-        if (result.success && result.context) {
-          textContent =
-            [result.context.textBefore, result.context.textAfter]
-              .filter(Boolean)
-              .join('[CURSOR]') || null
-          selectedText = result.context.selectedText || null
+    if (platform === 'darwin') {
+      console.info('[GetContextTool] macOS: attempting accessibility context...')
+      if (macOSAccessibilityContextProvider.isRunning()) {
+        try {
+          const result = await macOSAccessibilityContextProvider.getCursorContext({
+            maxCharsBefore: 2000,
+            maxCharsAfter: 1000,
+            timeout: 800,
+            debug: false,
+          })
+          if (result.success && result.context) {
+            textContent =
+              [result.context.textBefore, result.context.textAfter]
+                .filter(Boolean)
+                .join('[CURSOR]') || null
+            selectedText = result.context.selectedText || null
+            console.info(
+              `[GetContextTool] macOS accessibility: textContent=${textContent ? textContent.length + ' chars' : 'null'}, selectedText=${selectedText ? selectedText.length + ' chars' : 'null'}`,
+            )
+          } else {
+            console.warn('[GetContextTool] macOS accessibility returned no context')
+          }
+        } catch (e) {
+          console.warn('[GetContextTool] macOS accessibility context failed:', e)
         }
-      } catch (e) {
-        console.warn('[GetContextTool] Accessibility context failed:', e)
+      } else {
+        console.warn(
+          '[GetContextTool] macOS accessibility provider not running. Ensure accessibility permissions are granted.',
+        )
       }
+    } else if (platform === 'win32') {
+      console.info('[GetContextTool] Windows: accessibility context via selected text fallback')
+    } else {
+      console.info(`[GetContextTool] Platform "${platform}": no native accessibility, using fallback`)
     }
 
     if (!textContent && !selectedText) {
+      console.info('[GetContextTool] No text from accessibility, trying selected text reader...')
       try {
         selectedText = await getSelectedTextString()
-      } catch {
-        /* ignore */
+        if (selectedText) {
+          console.info(`[GetContextTool] Selected text reader: ${selectedText.length} chars`)
+        } else {
+          console.info('[GetContextTool] Selected text reader: no text returned')
+        }
+      } catch (e) {
+        console.warn('[GetContextTool] Selected text reader failed:', e)
       }
     }
 
     let browserUrl: string | null = null
     if (cached?.browserInfo?.url) {
       browserUrl = cached.browserInfo.url
+      console.info(`[GetContextTool] Browser URL (cached): ${browserUrl}`)
     } else if (activeWindow) {
-      const urlInfo = await getBrowserUrl(activeWindow).catch(() => ({
-        url: null,
-        domain: null,
-        browser: null,
-      }))
-      browserUrl = urlInfo.url
-    }
-
-    if (!textContent && !selectedText && !activeWindow) {
-      return {
-        success: false,
-        output: {
-          error:
-            'Could not get context. No text field is focused and no window info available. Accessibility permissions may be required.',
-        },
+      console.info('[GetContextTool] Fetching browser URL...')
+      try {
+        const urlInfo = await getBrowserUrl(activeWindow)
+        browserUrl = urlInfo.url
+        console.info(`[GetContextTool] Browser URL: ${browserUrl || 'none'}`)
+      } catch (e) {
+        console.warn('[GetContextTool] Browser URL fetch failed:', e)
       }
     }
 
-    return {
-      success: true,
-      output: {
-        appName: activeWindow?.appName || null,
-        windowTitle: activeWindow?.title || null,
-        browserUrl,
-        textContent,
-        selectedText,
-      },
+    if (!textContent && !selectedText && !activeWindow) {
+      const errMsg =
+        platform === 'darwin'
+          ? 'Could not get context. Accessibility permissions may be required (System Preferences → Privacy & Security → Accessibility).'
+          : platform === 'win32'
+            ? 'Could not get context. No text field is focused. Try selecting text before using the agent.'
+            : 'Could not get context. On Linux, try selecting text before using the agent.'
+      console.warn(`[GetContextTool] FAILED: ${errMsg}`)
+      return {
+        success: false,
+        output: { error: errMsg },
+      }
     }
+
+    const result = {
+      appName: activeWindow?.appName || null,
+      windowTitle: activeWindow?.title || null,
+      browserUrl,
+      textContent,
+      selectedText,
+    }
+
+    console.info(
+      `[GetContextTool] SUCCESS: app="${result.appName}", hasText=${!!textContent}, hasSelection=${!!selectedText}, hasUrl=${!!browserUrl}`,
+    )
+
+    return { success: true, output: result }
   }
 }

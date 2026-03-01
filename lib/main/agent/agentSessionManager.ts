@@ -34,7 +34,8 @@ class AgentSessionManager {
   private currentDraft: string | null = null
 
   private initAgent(): Agent {
-    console.info('[AgentSession] Initializing agent with tools')
+    console.info('[AgentSession] ── initAgent START ──')
+    console.info('[AgentSession] Creating tools: GetContext, Draft, WriteToTextField, Stop')
 
     this.stopTool = new StopTool()
     this.draftTool = new DraftTool()
@@ -42,6 +43,7 @@ class AgentSessionManager {
 
     this.draftTool.setOnDraftUpdated((draft) => {
       this.currentDraft = draft
+      console.info(`[AgentSession] Draft updated (${draft?.length ?? 0} chars)`)
       this.broadcastWindowState()
     })
 
@@ -55,7 +57,9 @@ class AgentSessionManager {
       this.stopTool,
     ]
 
-    return new Agent(tools)
+    const agent = new Agent(tools)
+    console.info('[AgentSession] ── initAgent DONE ──')
+    return agent
   }
 
   private broadcastWindowState(): void {
@@ -65,19 +69,27 @@ class AgentSessionManager {
         tools: m.tools ? [...m.tools] : undefined,
       })),
     }
-    BrowserWindow.getAllWindows().forEach((window) => {
+    const windows = BrowserWindow.getAllWindows()
+    let sent = 0
+    windows.forEach((window) => {
       if (!window.webContents.isDestroyed()) {
         window.webContents.send('agent-window-update', state)
+        sent++
       }
     })
+    console.log(`[AgentSession] Broadcast UI state to ${sent}/${windows.length} windows (${this.uiMessages.length} messages)`)
   }
 
   public async startSession() {
-    console.info('[AgentSession] Starting agent session')
+    const startMs = Date.now()
+    console.info('[AgentSession] ══════ SESSION START ══════')
     interactionManager.initialize()
 
     if (!this.agent) {
+      console.info('[AgentSession] No existing agent, creating new one')
       this.agent = this.initAgent()
+    } else {
+      console.info('[AgentSession] Reusing existing agent instance')
     }
 
     this.uiMessages = []
@@ -87,30 +99,44 @@ class AgentSessionManager {
     const { llm } = getAdvancedSettings()
     const isSoniox = llm?.asrProvider === 'soniox'
 
+    console.info(
+      `[AgentSession] ASR config: provider="${llm?.asrProvider || 'default'}", mode=${isSoniox ? 'soniox' : 'grpc'}`,
+    )
+    console.info(
+      `[AgentSession] LLM config: provider="${llm?.llmProvider || 'default'}", model="${llm?.llmModel || 'default'}"`,
+    )
+
     if (isSoniox) {
       await this.startSonioxAgentSession()
     } else {
       await this.startGrpcAgentSession()
     }
+
+    const elapsed = Date.now() - startMs
+    console.info(`[AgentSession] Session started in ${elapsed}ms`)
   }
 
   private async startGrpcAgentSession() {
     this.isSonioxMode = false
+    console.info('[AgentSession] Starting gRPC agent session...')
 
     const started = await itoStreamController.initialize(ItoMode.TRANSCRIBE)
     if (!started) {
-      console.error('[AgentSession] Failed to initialize stream controller')
+      console.error('[AgentSession] FAILED: itoStreamController.initialize() returned false. Possible concurrent stream.')
       return
     }
 
+    console.info('[AgentSession] Stream controller initialized, starting gRPC stream...')
     this.streamResponsePromise = itoStreamController.startGrpcStream()
     voiceInputService.startAudioRecording()
     recordingStateNotifier.notifyRecordingStarted(ItoMode.TRANSCRIBE)
     preventAppNap()
+    console.info('[AgentSession] gRPC recording active')
   }
 
   private async startSonioxAgentSession() {
     this.isSonioxMode = true
+    console.info('[AgentSession] Starting Soniox agent session...')
 
     this.sonioxAudioHandler = (chunk: Buffer) => {
       if (this.sonioxService) {
@@ -124,9 +150,12 @@ class AgentSessionManager {
     preventAppNap()
 
     try {
+      console.info('[AgentSession] Requesting Soniox temp key...')
       const tempKey = await sonioxTempKeyManager.getKey()
+      console.info('[AgentSession] Soniox temp key obtained, connecting...')
       this.sonioxService = new SonioxStreamingService()
       await this.sonioxService.start(tempKey, undefined)
+      console.info('[AgentSession] Soniox connected and recording')
     } catch (error) {
       console.error('[AgentSession] Soniox connect failed:', error)
       this.cleanupSoniox()
@@ -134,6 +163,7 @@ class AgentSessionManager {
   }
 
   public async completeSession() {
+    console.info(`[AgentSession] completeSession() called (mode=${this.isSonioxMode ? 'soniox' : 'grpc'})`)
     if (this.isSonioxMode) {
       await this.completeSonioxAgentSession()
       return
@@ -142,14 +172,20 @@ class AgentSessionManager {
   }
 
   private async completeGrpcAgentSession() {
+    const completeStartMs = Date.now()
+    console.info('[AgentSession] ── completeGrpcAgentSession START ──')
+
     const responsePromise = this.streamResponsePromise
     this.streamResponsePromise = null
 
+    console.info('[AgentSession] Stopping audio recording...')
     await voiceInputService.stopAudioRecording()
 
     const audioDurationMs = itoStreamController.getAudioDurationMs()
+    console.info(`[AgentSession] Audio duration: ${audioDurationMs}ms`)
+
     if (audioDurationMs < MINIMUM_AUDIO_DURATION_MS) {
-      console.info(`[AgentSession] Audio too short (${audioDurationMs}ms), cancelling`)
+      console.info(`[AgentSession] Audio too short (${audioDurationMs}ms < ${MINIMUM_AUDIO_DURATION_MS}ms), cancelling`)
       itoStreamController.cancelTranscription()
       itoStreamController.clearInteractionAudio()
       recordingStateNotifier.notifyRecordingStopped()
@@ -164,6 +200,7 @@ class AgentSessionManager {
       return
     }
 
+    console.info('[AgentSession] Ending interaction, waiting for transcription...')
     itoStreamController.endInteraction()
     recordingStateNotifier.notifyProcessingStarted(true)
     recordingStateNotifier.notifyRecordingStopped()
@@ -174,20 +211,29 @@ class AgentSessionManager {
         const transcript = result.response?.transcript?.trim()
 
         if (!transcript || transcript.length < 2) {
-          console.info('[AgentSession] Transcript too short, skipping agent')
+          console.info(`[AgentSession] Transcript too short or empty: "${transcript || ''}"`)
         } else {
-          console.info(`[AgentSession] Transcript: "${transcript}" (${transcript.length} chars)`)
+          console.info(`[AgentSession] Transcript received: "${transcript}" (${transcript.length} chars)`)
           await this.runAgentWithTranscript(transcript)
         }
       } catch (error) {
         console.error('[AgentSession] gRPC stream error:', error)
+        this.uiMessages.push({
+          text: 'Failed to transcribe audio. Please try again.',
+          sender: 'agent',
+          isError: true,
+        })
+        this.broadcastWindowState()
       } finally {
         recordingStateNotifier.notifyProcessingStopped()
         allowAppNap()
         itoStreamController.clearInteractionAudio()
         this.resetToolState()
+        const elapsed = Date.now() - completeStartMs
+        console.info(`[AgentSession] ── completeGrpcAgentSession DONE (${elapsed}ms) ──`)
       }
     } else {
+      console.warn('[AgentSession] No responsePromise available — session may have been cancelled')
       recordingStateNotifier.notifyProcessingStopped()
       allowAppNap()
       this.resetToolState()
@@ -195,6 +241,9 @@ class AgentSessionManager {
   }
 
   private async completeSonioxAgentSession() {
+    const completeStartMs = Date.now()
+    console.info('[AgentSession] ── completeSonioxAgentSession START ──')
+
     await voiceInputService.stopAudioRecording()
 
     if (this.sonioxAudioHandler) {
@@ -211,11 +260,16 @@ class AgentSessionManager {
     let rawTranscript = ''
     if (service) {
       try {
+        console.info('[AgentSession] Stopping Soniox service...')
         rawTranscript = await service.stop()
+        console.info(`[AgentSession] Soniox transcript: "${rawTranscript.slice(0, 100)}" (${rawTranscript.length} chars)`)
       } catch (error) {
         console.error('[AgentSession] Soniox stop error:', error)
         rawTranscript = service.getAccumulatedText() || ''
+        console.info(`[AgentSession] Soniox fallback text: "${rawTranscript.slice(0, 100)}" (${rawTranscript.length} chars)`)
       }
+    } else {
+      console.warn('[AgentSession] No Soniox service to stop')
     }
 
     if (!rawTranscript || rawTranscript.trim().length < 2) {
@@ -233,11 +287,18 @@ class AgentSessionManager {
       recordingStateNotifier.notifyProcessingStopped()
       allowAppNap()
       this.resetToolState()
+      const elapsed = Date.now() - completeStartMs
+      console.info(`[AgentSession] ── completeSonioxAgentSession DONE (${elapsed}ms) ──`)
     }
   }
 
   private async runAgentWithTranscript(transcript: string) {
+    const runStartMs = Date.now()
+    console.info('[AgentSession] ══════ runAgentWithTranscript START ══════')
+    console.info(`[AgentSession] Transcript: "${transcript}"`)
+
     if (!this.agent) {
+      console.info('[AgentSession] Agent not initialized, creating...')
       this.agent = this.initAgent()
     }
 
@@ -247,23 +308,25 @@ class AgentSessionManager {
     const liveTools: string[] = []
     this.uiMessages.push({ text: '', sender: 'agent', tools: liveTools })
 
-    console.info(`[AgentSession] Running agent with transcript (${transcript.length} chars)`)
+    console.info(`[AgentSession] Calling agent.run()...`)
 
     const result = await this.agent.run(transcript, {
       onToolExecuted: (tool) => {
-        console.info(`[AgentSession] Tool executed: ${tool.displayName}`)
+        console.info(`[AgentSession] Tool executed: ${tool.displayName} (${tool.didSucceed ? 'SUCCESS' : 'FAILED'})`)
         liveTools.push(tool.displayName)
         this.broadcastWindowState()
       },
     })
 
+    const elapsed = Date.now() - runStartMs
     console.info(
-      `[AgentSession] Agent response: ${result.response?.length ?? 0} chars, history=${result.history.length} turns`,
+      `[AgentSession] Agent completed in ${elapsed}ms: response=${result.response?.length ?? 0} chars, isError=${result.isError}, history=${result.history.length} turns`,
     )
 
     this.uiMessages.pop()
 
     if (result.isError) {
+      console.error(`[AgentSession] Agent returned error: ${result.response}`)
       this.uiMessages.push({
         text: result.response || 'An unexpected error occurred.',
         sender: 'agent',
@@ -313,8 +376,13 @@ class AgentSessionManager {
       })
       this.broadcastWindowState()
 
-      const typed = await setFocusedText(result.response).catch(() => false)
+      console.info('[AgentSession] Attempting to write response to focused text field...')
+      const typed = await setFocusedText(result.response).catch((e) => {
+        console.warn('[AgentSession] setFocusedText failed:', e)
+        return false
+      })
       if (!typed) {
+        console.info('[AgentSession] Could not type — showing notification instead')
         new Notification({
           title: 'Agent',
           body: result.response,
@@ -332,16 +400,19 @@ class AgentSessionManager {
         body: 'Done — nothing to write.',
       }).show()
     }
+
+    console.info('[AgentSession] ══════ runAgentWithTranscript DONE ══════')
   }
 
   private resetToolState() {
+    console.info('[AgentSession] Resetting tool state')
     this.stopTool?.reset()
     this.draftTool?.clearDraft()
     this.currentDraft = null
   }
 
   public cancelSession() {
-    console.info('[AgentSession] Cancelling')
+    console.info('[AgentSession] ══════ CANCEL SESSION ══════')
     voiceInputService.stopAudioRecording()
 
     if (this.isSonioxMode) {
@@ -356,10 +427,11 @@ class AgentSessionManager {
     allowAppNap()
     this.streamResponsePromise = null
     this.resetToolState()
+    console.info('[AgentSession] Session cancelled')
   }
 
   public async cleanup() {
-    console.info('[AgentSession] Full cleanup')
+    console.info('[AgentSession] ══════ FULL CLEANUP ══════')
     this.agent?.clearHistory()
     this.uiMessages = []
     this.agent = null
@@ -373,9 +445,11 @@ class AgentSessionManager {
         window.webContents.send('agent-window-update', null)
       }
     })
+    console.info('[AgentSession] Cleanup complete')
   }
 
   private cleanupSoniox() {
+    console.info('[AgentSession] Cleaning up Soniox resources')
     if (this.sonioxAudioHandler) {
       audioRecorderService.off('audio-chunk', this.sonioxAudioHandler)
       this.sonioxAudioHandler = null
