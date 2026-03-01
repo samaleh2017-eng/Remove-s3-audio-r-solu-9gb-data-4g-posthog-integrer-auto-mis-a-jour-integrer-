@@ -50,7 +50,10 @@ export class ActiveWindowMonitor extends EventEmitter {
   private cachedState: CachedWindowState | null = null
   private lastHeartbeat = Date.now()
   private heartbeatTimer: NodeJS.Timeout | null = null
-  private pendingIconCallbacks = new Map<string, (icon: string | null) => void>()
+  private pendingIconCallbacks = new Map<
+    string,
+    (icon: string | null) => void
+  >()
   private iconRequestCounter = 0
   private isStopped = false
   private restartAttempts = 0
@@ -67,7 +70,9 @@ export class ActiveWindowMonitor extends EventEmitter {
 
     const binaryPath = getNativeBinaryPath(NATIVE_MODULE_NAME)
     if (!binaryPath) {
-      console.error('[ActiveWindowMonitor] Cannot find active-application binary')
+      console.error(
+        '[ActiveWindowMonitor] Cannot find active-application binary',
+      )
       return
     }
 
@@ -105,22 +110,29 @@ export class ActiveWindowMonitor extends EventEmitter {
         console.warn('[ActiveWindowMonitor] stderr:', data.toString())
       })
 
-      this.process.on('error', (err) => {
+      this.process.on('error', err => {
         console.error('[ActiveWindowMonitor] Process error:', err)
         this.process = null
       })
 
       this.process.on('close', (code, signal) => {
-        console.warn(`[ActiveWindowMonitor] Process closed (code=${code}, signal=${signal})`)
+        console.warn(
+          `[ActiveWindowMonitor] Process closed (code=${code}, signal=${signal})`,
+        )
         this.process = null
 
         if (!this.isStopped && this.restartAttempts < MAX_RESTART_ATTEMPTS) {
           this.restartAttempts++
-          const delay = RESTART_BACKOFF_BASE_MS * Math.pow(2, this.restartAttempts - 1)
-          console.log(`[ActiveWindowMonitor] Restarting in ${delay}ms (attempt ${this.restartAttempts}/${MAX_RESTART_ATTEMPTS})`)
+          const delay =
+            RESTART_BACKOFF_BASE_MS * Math.pow(2, this.restartAttempts - 1)
+          console.log(
+            `[ActiveWindowMonitor] Restarting in ${delay}ms (attempt ${this.restartAttempts}/${MAX_RESTART_ATTEMPTS})`,
+          )
           setTimeout(() => this.start(), delay)
         } else if (this.restartAttempts >= MAX_RESTART_ATTEMPTS) {
-          console.error('[ActiveWindowMonitor] Max restart attempts reached, giving up')
+          console.error(
+            '[ActiveWindowMonitor] Max restart attempts reached, giving up',
+          )
         }
       })
 
@@ -143,9 +155,40 @@ export class ActiveWindowMonitor extends EventEmitter {
 
   public getCachedState(): CachedWindowState | null {
     if (!this.cachedState) return null
-    const age = Date.now() - this.cachedState.timestamp
-    if (age > 3000) return null
+    if (!this.process) {
+      const age = Date.now() - this.cachedState.timestamp
+      if (age > 10000) return null
+    }
     return this.cachedState
+  }
+
+  public waitForPendingIcon(
+    cacheKey: string,
+    timeoutMs: number = 150,
+  ): Promise<string | null> {
+    const existing = this.iconCache.get(cacheKey) ?? null
+    if (existing) return Promise.resolve(existing)
+    if (!this.iconFetchInProgress.has(cacheKey)) return Promise.resolve(null)
+
+    return new Promise<string | null>(resolve => {
+      const start = Date.now()
+      const check = () => {
+        const icon = this.iconCache.get(cacheKey) ?? null
+        if (icon) {
+          resolve(icon)
+          return
+        }
+        if (
+          !this.iconFetchInProgress.has(cacheKey) ||
+          Date.now() - start >= timeoutMs
+        ) {
+          resolve(null)
+          return
+        }
+        setTimeout(check, 10)
+      }
+      setTimeout(check, 10)
+    })
   }
 
   private getIconCacheKey(window: ActiveWindow): string {
@@ -190,7 +233,7 @@ export class ActiveWindowMonitor extends EventEmitter {
   }
 
   public requestIcon(): Promise<string | null> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       if (!this.process?.stdin?.writable) {
         resolve(null)
         return
@@ -202,14 +245,14 @@ export class ActiveWindowMonitor extends EventEmitter {
         resolve(null)
       }, 800)
 
-      this.pendingIconCallbacks.set(requestId, (icon) => {
+      this.pendingIconCallbacks.set(requestId, icon => {
         clearTimeout(timeout)
         resolve(icon)
       })
 
       try {
         this.process.stdin.write(
-          JSON.stringify({ command: 'get_icon', requestId }) + '\n'
+          JSON.stringify({ command: 'get_icon', requestId }) + '\n',
         )
       } catch (err) {
         console.warn('[ActiveWindowMonitor] Failed to write to stdin:', err)
