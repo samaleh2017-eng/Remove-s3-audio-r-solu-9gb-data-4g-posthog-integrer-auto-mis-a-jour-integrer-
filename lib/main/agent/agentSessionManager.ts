@@ -27,13 +27,7 @@ class AgentSessionManager {
 
   public async startSession() {
     console.info('[AgentSession] Starting agent session')
-
-    let interactionId = interactionManager.getCurrentInteractionId()
-    if (interactionId) {
-      interactionManager.adoptInteractionId(interactionId)
-    } else {
-      interactionId = interactionManager.initialize()
-    }
+    interactionManager.initialize()
 
     const { llm } = getAdvancedSettings()
     const isSoniox = llm?.asrProvider === 'soniox'
@@ -43,8 +37,6 @@ class AgentSessionManager {
     } else {
       await this.startGrpcAgentSession()
     }
-
-    return interactionId
   }
 
   private async startGrpcAgentSession() {
@@ -139,6 +131,7 @@ class AgentSessionManager {
     } else {
       recordingStateNotifier.notifyProcessingStopped()
       allowAppNap()
+      resetToolState()
     }
   }
 
@@ -208,6 +201,11 @@ class AgentSessionManager {
           body: result.response,
         }).show()
       }
+    } else {
+      new Notification({
+        title: 'Agent',
+        body: 'Done — nothing to write.',
+      }).show()
     }
   }
 
