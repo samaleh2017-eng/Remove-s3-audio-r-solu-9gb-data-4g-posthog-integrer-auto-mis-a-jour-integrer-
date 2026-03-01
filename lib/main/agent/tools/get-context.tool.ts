@@ -2,9 +2,12 @@ import type { ToolResult } from '../types'
 import { macOSAccessibilityContextProvider } from '../../../media/macOSAccessibilityContextProvider'
 import { getActiveWindow } from '../../../media/active-application'
 import { getBrowserUrl } from '../../../media/browser-url'
-import { getSelectedTextString } from '../../../media/selected-text-reader'
+import { getSelectedTextString, getCursorContext } from '../../../media/selected-text-reader'
+import { isTerminalApplication } from '../../../utils/applicationDetection'
 import { activeWindowMonitor } from '../../ActiveWindowMonitor'
 import { BaseTool } from './base.tool'
+
+const AGENT_CURSOR_CONTEXT_LENGTH = 1000
 
 export class GetContextTool extends BaseTool<Record<string, unknown>> {
   readonly name = 'get_context'
@@ -86,6 +89,27 @@ export class GetContextTool extends BaseTool<Record<string, unknown>> {
         }
       } catch (e) {
         console.warn('[GetContextTool] Selected text reader failed:', e)
+      }
+    }
+
+    if (!textContent && !selectedText) {
+      const appName = activeWindow?.appName || ''
+      const skipCursorContext = appName && isTerminalApplication(appName)
+      if (skipCursorContext) {
+        console.info(`[GetContextTool] Skipping cursor context for terminal app: ${appName}`)
+      } else {
+        console.info(`[GetContextTool] No selected text, trying cursor context (${AGENT_CURSOR_CONTEXT_LENGTH} chars)...`)
+        try {
+          const cursorText = await getCursorContext(AGENT_CURSOR_CONTEXT_LENGTH)
+          if (cursorText && cursorText.trim().length > 0) {
+            textContent = cursorText.trim()
+            console.info(`[GetContextTool] Cursor context: ${textContent.length} chars`)
+          } else {
+            console.info('[GetContextTool] Cursor context: no text returned')
+          }
+        } catch (e) {
+          console.warn('[GetContextTool] Cursor context failed:', e)
+        }
       }
     }
 
