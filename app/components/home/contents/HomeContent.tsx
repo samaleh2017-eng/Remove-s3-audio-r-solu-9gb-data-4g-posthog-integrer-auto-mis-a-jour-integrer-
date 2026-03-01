@@ -1,9 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  InfoCircle,
-  Copy,
-  Check,
-} from '@mynaui/icons-react'
+import { InfoCircle, Copy, Check } from '@mynaui/icons-react'
 import { EXTERNAL_LINKS } from '@/lib/constants/external-links'
 import { useSettingsStore } from '../../../store/useSettingsStore'
 import { Tooltip, TooltipTrigger, TooltipContent } from '../../ui/tooltip'
@@ -29,30 +25,6 @@ interface InteractionStats {
   averageWPM: number
 }
 
-const _StatCard = ({
-  title,
-  value,
-  description,
-  icon,
-}: {
-  title: string
-  value: string
-  description: string
-  icon: React.ReactNode
-}) => {
-  return (
-    <div className="flex flex-col p-4 w-1/3 border border-[var(--border)] rounded-[var(--radius-lg)] gap-4">
-      <div className="flex flex-row items-center">
-        <div className="flex flex-col gap-1">
-          <div>{title}</div>
-          <div className="font-bold">{value}</div>
-        </div>
-        <div className="flex flex-col items-end flex-1">{icon}</div>
-      </div>
-      <div className="w-full text-[var(--color-subtext)]">{description}</div>
-    </div>
-  )
-}
 
 interface HomeContentProps {
   isStartingTrial?: boolean
@@ -463,14 +435,14 @@ export default function HomeContent({
                 {formatStreakText(stats.streakDays)}
               </span>
             </div>
-            <div className="h-5 w-px bg-warm-200" />
+            <div className="h-5 w-px bg-[var(--border)]" />
             <div className="flex items-center gap-2">
               <span>🚀</span>
               <span className="font-medium text-[var(--color-text)]">
                 {stats.totalWords.toLocaleString()} words
               </span>
             </div>
-            <div className="h-5 w-px bg-warm-200" />
+            <div className="h-5 w-px bg-[var(--border)]" />
             <div className="flex items-center gap-2">
               <span>🏆</span>
               <span className="font-medium text-[var(--color-text)]">
@@ -490,7 +462,7 @@ export default function HomeContent({
               <span key="hold-down">Hold down the trigger key </span>
               {keyboardShortcut.map((key, index) => (
                 <React.Fragment key={index}>
-                  <span className="bg-white border border-[var(--border)] px-1.5 py-0.5 rounded text-xs font-mono shadow-sm">
+                  <span className="bg-[var(--card)] border border-[var(--border)] px-1.5 py-0.5 rounded text-xs font-mono shadow-sm">
                     {getKeyDisplay(key as KeyName, platform, {
                       showDirectionalText: false,
                       format: 'label',
@@ -521,11 +493,11 @@ export default function HomeContent({
       {/* Scrollable Recent Activity Section */}
       <div className="flex-1 px-12 max-w-4xl mx-auto w-full overflow-y-auto scrollbar-hide">
         {loading ? (
-          <div className="bg-white dark:bg-[var(--card)] rounded-[var(--radius-lg)] border border-[var(--border)] p-8 text-center text-[var(--color-subtext)]">
+          <div className="bg-[var(--card)] rounded-[var(--radius-lg)] border border-[var(--border)] p-8 text-center text-[var(--color-subtext)]">
             Loading recent activity...
           </div>
         ) : interactions.length === 0 ? (
-          <div className="bg-white dark:bg-[var(--card)] rounded-[var(--radius-lg)] border border-[var(--border)] p-8 text-center text-[var(--color-subtext)]">
+          <div className="bg-[var(--card)] rounded-[var(--radius-lg)] border border-[var(--border)] p-8 text-center text-[var(--color-subtext)]">
             <p className="text-sm">No interactions yet</p>
             <p className="text-xs mt-1">
               Try using voice dictation by pressing{' '}
@@ -540,7 +512,7 @@ export default function HomeContent({
                   <div className="text-xs font-semibold tracking-[1px] uppercase text-[var(--color-subtext)] mb-4">
                     {dateLabel}
                   </div>
-                  <div className="bg-white dark:bg-[var(--card)] rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-card)] divide-y divide-[var(--border)]">
+                  <div className="bg-[var(--card)] rounded-[var(--radius-lg)] border border-[var(--border)] shadow-[var(--shadow-card)] divide-y divide-[var(--border)]">
                     {dateInteractions.map(interaction => {
                       const displayInfo = getDisplayText(interaction)
 
@@ -593,7 +565,7 @@ export default function HomeContent({
                               >
                                 <TooltipTrigger asChild>
                                   <button
-                                    className={`p-1.5 hover:bg-warm-200 rounded transition-colors cursor-pointer ${
+                                    className={`p-1.5 hover:bg-[var(--color-muted-bg)] rounded transition-colors cursor-pointer ${
                                       copiedItems.has(interaction.id)
                                         ? 'text-green-600'
                                         : 'text-[var(--color-subtext)]'

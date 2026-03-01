@@ -78,7 +78,7 @@ export function createAppWindow(): BrowserWindow {
 
   // Intercept the close event to hide the window instead of closing it
   // This allows the app to stay running in the system tray
-  mainWindow.on('close', (event) => {
+  mainWindow.on('close', event => {
     if (!isQuitting) {
       event.preventDefault()
       mainWindow?.hide()

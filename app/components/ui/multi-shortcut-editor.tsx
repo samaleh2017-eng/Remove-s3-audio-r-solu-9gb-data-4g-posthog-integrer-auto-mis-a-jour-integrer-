@@ -200,8 +200,8 @@ export default function MultiShortcutEditor({
   }, [editingId, stop, editorKey])
 
   const base =
-    'inline-flex items-center justify-center rounded-xl border border-neutral-300 ' +
-    'px-3 py-1.5 text-neutral-700 hover:bg-neutral-50 h-9 min-w-[48px] border-0'
+    'inline-flex items-center justify-center rounded-xl border border-[var(--border)] ' +
+    'px-3 py-1.5 text-[var(--color-text)] bg-[var(--card)] hover:bg-[var(--muted)] h-9 min-w-[48px]'
 
   const isLockedByOther = activeEditor !== null && activeEditor !== editorKey
 
@@ -214,7 +214,7 @@ export default function MultiShortcutEditor({
         return (
           <div
             key={row.id}
-            className="mb-1 rounded-lg border border-neutral-200 bg-white p-1"
+            className="mb-1 rounded-xl border border-[var(--border)] bg-[var(--card)] p-1 shadow-[var(--shadow-card)]"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center justify-between gap-1">
@@ -225,14 +225,14 @@ export default function MultiShortcutEditor({
                     ))}
                     {isEditing &&
                       displayKeys.length < MAX_KEYS_PER_SHORTCUT && (
-                        <span className="text-xs text-neutral-400 ml-2">
+                        <span className="text-xs text-[var(--muted-foreground)] ml-2">
                           ({MAX_KEYS_PER_SHORTCUT - displayKeys.length} more
                           allowed)
                         </span>
                       )}
                   </>
                 ) : (
-                  <span className="text-neutral-400">
+                  <span className="text-[var(--muted-foreground)]">
                     {isEditing
                       ? `Press keys to add (max ${MAX_KEYS_PER_SHORTCUT})`
                       : `No keys set`}
@@ -298,7 +298,7 @@ export default function MultiShortcutEditor({
             addNew()
           }}
           hidden={isAtLimit}
-          className="rounded-md border border-neutral-300 py-1 px-2 text-md text-neutral-800 disabled:opacity-50 hover:bg-neutral-50 disabled:cursor-not-allowed"
+          className="rounded-xl border border-[var(--border)] bg-[var(--card)] py-1.5 px-3 text-sm text-[var(--color-text)] disabled:opacity-50 hover:bg-[var(--muted)] disabled:cursor-not-allowed"
           disabled={isLockedByOther}
         >
           Add another

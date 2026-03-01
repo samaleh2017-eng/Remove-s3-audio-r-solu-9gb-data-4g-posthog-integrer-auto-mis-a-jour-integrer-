@@ -67,7 +67,10 @@ export const useDictionaryStore = create<DictionaryStore>((set, get) => ({
       const entries = items.map(mapItemToEntry)
       set({ entries })
     } catch (error) {
-      console.error('[DictionaryStore] Failed to load dictionary from database:', error)
+      console.error(
+        '[DictionaryStore] Failed to load dictionary from database:',
+        error,
+      )
     }
   },
 

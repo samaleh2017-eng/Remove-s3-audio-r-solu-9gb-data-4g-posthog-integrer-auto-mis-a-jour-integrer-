@@ -5,7 +5,6 @@ import { ItoMode } from '@/app/generated/ito_pb.js'
 import { ITO_MODE_SHORTCUT_DEFAULTS } from '../constants/keyboard-defaults.js'
 import { KeyName, normalizeLegacyKey } from '../types/keyboard.js'
 import { KeyValueStore } from './sqlite/repo'
-import { resolveDefaultKeys } from '../utils/settings.js'
 
 export interface KeyboardShortcutConfig {
   id: string
@@ -170,7 +169,7 @@ export const defaultValues: AppStore = {
 }
 
 // Lightweight store-like interface used for migrations and defaults logic
-type StoreLike<T = any> = {
+type StoreLike = {
   get: (path: string) => any
   set: (path: string, value: any) => void
 }

@@ -87,7 +87,7 @@ export const AppTargetTable = {
       `SELECT id, user_id, name, match_type, domain, tone_id, icon_base64, 
        created_at, updated_at, deleted_at
        FROM app_targets WHERE user_id = ? AND deleted_at IS NULL ORDER BY name`,
-      [userId]
+      [userId],
     )
     return rows.map(mapAppTargetRowToAppTarget)
   },
@@ -97,18 +97,21 @@ export const AppTargetTable = {
       `SELECT id, user_id, name, match_type, domain, tone_id, icon_base64,
        created_at, updated_at, deleted_at
        FROM app_targets WHERE id = ? AND user_id = ? AND deleted_at IS NULL`,
-      [id, userId]
+      [id, userId],
     )
     return row ? mapAppTargetRowToAppTarget(row) : null
   },
 
-  async findByDomain(domain: string, userId: string): Promise<AppTarget | null> {
+  async findByDomain(
+    domain: string,
+    userId: string,
+  ): Promise<AppTarget | null> {
     const row = await get<AppTargetRow>(
       `SELECT id, user_id, name, match_type, domain, tone_id, icon_base64,
        created_at, updated_at, deleted_at
        FROM app_targets 
        WHERE domain = ? AND user_id = ? AND match_type = 'domain' AND deleted_at IS NULL`,
-      [domain, userId]
+      [domain, userId],
     )
     return row ? mapAppTargetRowToAppTarget(row) : null
   },
@@ -145,7 +148,7 @@ export const AppTargetTable = {
         data.iconBase64 ?? null,
         now,
         now,
-      ]
+      ],
     )
 
     const result = await AppTargetTable.findById(data.id, data.userId)
@@ -158,13 +161,13 @@ export const AppTargetTable = {
   async updateTone(
     id: string,
     userId: string,
-    toneId: string | null
+    toneId: string | null,
   ): Promise<void> {
     const now = new Date().toISOString()
 
     await run(
       `UPDATE app_targets SET tone_id = ?, updated_at = ? WHERE id = ? AND user_id = ?`,
-      [toneId, now, id, userId]
+      [toneId, now, id, userId],
     )
   },
 
@@ -173,7 +176,7 @@ export const AppTargetTable = {
 
     await run(
       `UPDATE app_targets SET deleted_at = ? WHERE id = ? AND user_id = ?`,
-      [now, id, userId]
+      [now, id, userId],
     )
   },
 
@@ -191,7 +194,7 @@ export const ToneTable = {
        FROM tones 
        WHERE (user_id IS NULL OR user_id = ?) AND deleted_at IS NULL 
        ORDER BY sort_order`,
-      [userId]
+      [userId],
     )
     return rows.map(mapToneRowToTone)
   },
@@ -202,7 +205,7 @@ export const ToneTable = {
        is_system, sort_order,
        created_at, updated_at, deleted_at
        FROM tones WHERE id = ?`,
-      [id]
+      [id],
     )
     return row ? mapToneRowToTone(row) : null
   },

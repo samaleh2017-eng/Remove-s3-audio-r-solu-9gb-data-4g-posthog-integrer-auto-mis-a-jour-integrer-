@@ -54,7 +54,7 @@ export default function IntroducingIntelligentMode() {
                 key={index}
                 className="flex items-center gap-2 text-base font-light mb-1 italic"
               >
-                <ArrowRight className="h-5 w-5 shrink-0 text-black" />
+                <ArrowRight className="h-5 w-5 shrink-0 text-[var(--muted-foreground)]" />
                 {step}
               </div>
             ))}
@@ -71,7 +71,7 @@ export default function IntroducingIntelligentMode() {
           </div>
         </div>
       </div>
-      <div className="flex w-[55%] items-center justify-center bg-gradient-to-b from-purple-50/10 to-purple-100 border-l-2 border-purple-100">
+      <div className="flex w-[55%] items-center justify-center bg-gradient-to-b from-indigo-50/20 to-indigo-100/60 border-l border-[var(--border)]">
         <KeyboardShortcutEditor
           shortcut={keyboardShortcut}
           onShortcutChange={updateKeyboardShortcut}
@@ -84,7 +84,7 @@ export default function IntroducingIntelligentMode() {
           minHeight={112}
           editButtonClassName="w-44"
           confirmButtonClassName="hidden"
-          className="rounded-xl shadow-lg p-6 flex flex-col items-center min-w-[500px] max-h-[280px]"
+          className="rounded-2xl border border-[var(--border)] shadow-[var(--shadow-soft)] p-6 flex flex-col items-center min-w-[500px] max-h-[280px] bg-[var(--card)]"
         />
       </div>
     </div>

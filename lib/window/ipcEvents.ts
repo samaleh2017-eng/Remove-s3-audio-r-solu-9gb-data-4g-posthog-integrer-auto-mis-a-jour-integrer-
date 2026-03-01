@@ -11,7 +11,11 @@ import {
   checkAccessibilityPermission,
   checkMicrophonePermission,
 } from '../utils/crossPlatform'
-import { getUpdateStatus, installUpdateNow, downloadUpdate } from '../main/autoUpdaterWrapper'
+import {
+  getUpdateStatus,
+  installUpdateNow,
+  downloadUpdate,
+} from '../main/autoUpdaterWrapper'
 
 import {
   startKeyListener,
@@ -29,7 +33,11 @@ import {
   InteractionsTable,
   UserMetadataTable,
 } from '../main/sqlite/repo'
-import { AppTargetTable, ToneTable } from '../main/sqlite/appTargetRepo'
+import {
+  AppTargetTable,
+  ToneTable,
+  type MatchType,
+} from '../main/sqlite/appTargetRepo'
 import {
   UserDetailsTable,
   UserAdditionalInfoTable,
@@ -1016,12 +1024,16 @@ ipcMain.handle('app-targets:list-installed-apps', async () => {
     if (platform === 'darwin') {
       const { stdout } = await execAsync(
         `{ ls -1 /Applications/ 2>/dev/null; ls -1 ~/Applications/ 2>/dev/null; ls -1 /System/Applications/ 2>/dev/null; } | grep '\\.app$' | sed 's/\\.app$//' | sort -u`,
-        { timeout: 2000 }
+        { timeout: 2000 },
       )
-      return stdout.trim().split('\n').filter(Boolean).filter(name => {
-        const lower = name.toLowerCase()
-        return !['electron', 'ito'].some(b => lower.includes(b))
-      })
+      return stdout
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .filter(name => {
+          const lower = name.toLowerCase()
+          return !['electron', 'ito'].some(b => lower.includes(b))
+        })
     }
 
     if (platform === 'win32') {
@@ -1061,7 +1073,7 @@ ipcMain.handle('app-targets:list-installed-apps', async () => {
         try {
           const { stdout } = await execAsync(
             `reg query "${regPath}" /s /v DisplayName`,
-            { timeout: 3000, windowsHide: true }
+            { timeout: 3000, windowsHide: true },
           )
           const lines = stdout.split('\n')
           for (const line of lines) {
@@ -1089,7 +1101,7 @@ ipcMain.handle('app-targets:list-installed-apps', async () => {
     if (platform === 'linux') {
       const { stdout } = await execAsync(
         `grep -rh '^Name=' /usr/share/applications/*.desktop 2>/dev/null | sed 's/^Name=//' | sort -u`,
-        { timeout: 2000 }
+        { timeout: 2000 },
       )
       return stdout.trim().split('\n').filter(Boolean)
     }

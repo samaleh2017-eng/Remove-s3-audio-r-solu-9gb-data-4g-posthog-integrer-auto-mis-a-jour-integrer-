@@ -7,7 +7,8 @@ type BillingPeriod = 'monthly' | 'annual'
 
 export default function PricingBillingSettingsContent() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('annual')
+  const [_billingPeriod, _setBillingPeriod] =
+    useState<BillingPeriod>('annual')
   const billingState = useBilling()
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
@@ -172,7 +173,7 @@ export default function PricingBillingSettingsContent() {
 
       {/* Error Message */}
       {checkoutError && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-800">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-800">
           {checkoutError}
         </div>
       )}
@@ -180,7 +181,7 @@ export default function PricingBillingSettingsContent() {
       {/* Cancellation Notice */}
       {billingState.isScheduledForCancellation &&
         billingState.subscriptionEndAt && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-sm text-yellow-800">
             <p className="font-medium mb-1">
               Your subscription will end on{' '}
               {billingState.subscriptionEndAt.toLocaleDateString('en-US', {
@@ -197,7 +198,7 @@ export default function PricingBillingSettingsContent() {
         )}
 
       {/* Pricing Cards */}
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         {/* Starter Card */}
         <PricingCard
           title="Starter"
@@ -238,7 +239,7 @@ export default function PricingBillingSettingsContent() {
             <Button
               variant="default"
               size="lg"
-              className="w-full bg-foreground hover:bg-foreground/90 text-white rounded-xl"
+              className="w-full rounded-xl"
               disabled={getProButtonDisabled()}
               onClick={
                 billingState.isScheduledForCancellation
@@ -296,10 +297,10 @@ function PricingCard({
 }: PricingCardProps) {
   return (
     <div
-      className={`rounded-[var(--radius-lg)] border-2 p-6 flex flex-col ${
+      className={`rounded-[var(--radius-lg)] border p-6 flex flex-col shadow-[var(--shadow-card)] ${
         isHighlighted
-          ? 'border-purple-500 bg-gradient-to-br from-purple-50/30 to-pink-50/30'
-          : 'border-[var(--border)] bg-[var(--color-surface)]'
+          ? 'border-[rgba(99,102,241,0.45)] bg-gradient-to-br from-indigo-50/60 to-pink-50/40'
+          : 'border-[var(--border)] bg-[var(--card)]'
       }`}
     >
       {/* Title */}
@@ -313,7 +314,7 @@ function PricingCard({
           className={`text-4xl font-bold ${
             isHighlighted
               ? 'bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent'
-              : 'text-foreground'
+              : 'text-[var(--color-text)]'
           }`}
         >
           {price}

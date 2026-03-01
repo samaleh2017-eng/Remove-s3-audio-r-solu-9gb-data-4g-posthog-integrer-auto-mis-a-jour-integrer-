@@ -11,8 +11,7 @@ export const Titlebar = () => {
   const { onboardingCompleted } = useOnboardingStore()
   const { isAuthenticated } = useAuthStore()
   const showOnboarding = !onboardingCompleted || !isAuthenticated
-  const { setCurrentPage, setSettingsPage, navExpanded } =
-    useMainStore()
+  const { setCurrentPage, setSettingsPage, navExpanded } = useMainStore()
   const { logoutUser } = useAuth()
   const wcontext = useWindowContext().window
   const [showUserDropdown, setShowUserDropdown] = useState(false)
@@ -105,12 +104,12 @@ export const Titlebar = () => {
           style={{ gap: '2px' }}
         >
           <div
-            className={`h-full border-r border-transparent transition-all duration-200 ease-in-out ${navExpanded ? 'w-56' : 'w-[72px]'}`}
+            className={`h-full border-r border-transparent transition-all duration-200 ease-in-out ${navExpanded ? 'w-64' : 'w-[84px]'}`}
           ></div>
 
           <div className="relative ml-2">
             <div
-              className="titlebar-action-btn hover:bg-warm-200"
+              className="titlebar-action-btn hover:bg-[var(--muted)]"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -130,17 +129,17 @@ export const Titlebar = () => {
             </div>
 
             {showUserDropdown && (
-              <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-[var(--card)] border border-warm-100 dark:border-warm-800 rounded-lg shadow-lg z-20">
+              <div className="absolute top-full left-0 mt-1 w-48 bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-[var(--shadow-soft)] z-20 overflow-hidden">
                 <button
                   onClick={handleSettingsClick}
-                  className="w-full px-2 py-2 text-left text-sm text-warm-700 hover:bg-warm-50 flex items-center gap-2 rounded-t-lg cursor-pointer"
+                  className="w-full px-3 py-2.5 text-left text-sm text-foreground hover:bg-[var(--muted)] flex items-center gap-2 cursor-pointer"
                 >
                   <CogFour className="w-4 h-4" />
                   Settings
                 </button>
                 <button
                   onClick={handleSignOutClick}
-                  className="w-full px-2 py-2 text-left text-sm text-warm-700 hover:bg-warm-50 flex items-center gap-2 rounded-b-lg cursor-pointer"
+                  className="w-full px-3 py-2.5 text-left text-sm text-foreground hover:bg-[var(--muted)] flex items-center gap-2 cursor-pointer"
                 >
                   <Logout className="w-4 h-4" />
                   Sign Out
@@ -190,11 +189,11 @@ export const Titlebar = () => {
           )}
 
           <button
-            className="titlebar-action-btn flex items-center justify-center w-8 h-8 rounded-lg hover:bg-warm-100 transition-colors"
+            className="titlebar-action-btn flex items-center justify-center w-8 h-8 rounded-lg hover:bg-[var(--muted)] transition-colors"
             title="Notifications"
             onClick={() => {}}
           >
-            <Bell className="w-4 h-4 text-warm-600" />
+            <Bell className="w-4 h-4 text-[var(--muted-foreground)]" />
           </button>
 
           {wcontext?.platform === 'win32' && <TitlebarControls />}
@@ -215,9 +214,12 @@ const TitlebarControls = () => {
   const [isMaximized, setIsMaximized] = useState(false)
 
   useEffect(() => {
-    const cleanup = window.api.on('window-maximized-changed', (maximized: boolean) => {
-      setIsMaximized(maximized)
-    })
+    const cleanup = window.api.on(
+      'window-maximized-changed',
+      (maximized: boolean) => {
+        setIsMaximized(maximized)
+      },
+    )
     return cleanup
   }, [])
 

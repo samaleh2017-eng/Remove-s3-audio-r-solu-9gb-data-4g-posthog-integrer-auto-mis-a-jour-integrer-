@@ -202,8 +202,8 @@ export default function KeyboardKey({
     return (
       <span
         className={clsx(
-          'inline-flex select-none items-center justify-center rounded-xl border border-neutral-300',
-          'bg-neutral-100 px-2.5 py-1 text-sm leading-5 text-neutral-900 shadow-sm',
+          'inline-flex select-none items-center justify-center rounded-xl border border-[var(--border)]',
+          'bg-[var(--muted)] px-2.5 py-1 text-sm leading-5 text-[var(--color-text)] shadow-sm',
           className,
         )}
         {...props}

@@ -13,7 +13,7 @@ import { ItoMode } from '@/app/generated/ito_pb'
 import { getKeyDisplay } from '@/app/utils/keyboard'
 import { usePlatform } from '@/app/hooks/usePlatform'
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { KeyName } from '@/lib/types/keyboard'
+import type { KeyName } from '@/lib/types/keyboard'
 
 export default function TryItOut() {
   const { decrementOnboardingStep, setOnboardingCompleted } =
@@ -28,10 +28,10 @@ export default function TryItOut() {
   function renderDemo() {
     if (selectedApp === 'slack') {
       return (
-        <div className="w-[475px] rounded-2xl bg-white shadow-lg flex flex-col gap-4">
-          <div className="flex items-center gap-2 mb-2 bg-neutral-100 py-4 px-4 rounded-t-2xl">
+        <div className="w-[475px] rounded-2xl bg-[var(--card)] border border-[var(--border)] shadow-[var(--shadow-soft)] flex flex-col gap-4">
+          <div className="flex items-center gap-2 mb-2 bg-[var(--muted)] py-4 px-4 rounded-t-2xl border-b border-[var(--border)]">
             <div
-              className="bg-white rounded-md p-1"
+              className="bg-[var(--card)] border border-[var(--border)] rounded-md p-1"
               style={{ width: 24, height: 24 }}
             >
               <SlackIcon />
@@ -51,7 +51,7 @@ export default function TryItOut() {
             <input
               type="text"
               placeholder={`Hold down on the hotkey(s) and start speaking...`}
-              className="w-full h-12 border border-neutral-500 rounded-md px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-0"
+              className="w-full h-12 border border-[var(--border)] rounded-xl px-3 py-2 text-sm bg-[var(--card)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
             />
           </div>
         </div>
@@ -59,10 +59,10 @@ export default function TryItOut() {
     }
     if (selectedApp === 'gmail') {
       return (
-        <div className="w-[475px] rounded-2xl bg-white shadow-lg flex flex-col gap-4">
-          <div className="flex items-center gap-2 mb-2 py-4 px-4 rounded-t-2xl border-b border-neutral-200 bg-neutral-100">
+        <div className="w-[475px] rounded-2xl bg-[var(--card)] border border-[var(--border)] shadow-[var(--shadow-soft)] flex flex-col gap-4">
+          <div className="flex items-center gap-2 mb-2 py-4 px-4 rounded-t-2xl border-b border-[var(--border)] bg-[var(--muted)]">
             <div
-              className="bg-white rounded-md p-1"
+              className="bg-[var(--card)] border border-[var(--border)] rounded-md p-1"
               style={{ width: 24, height: 24 }}
             >
               <GmailIcon />
@@ -72,9 +72,9 @@ export default function TryItOut() {
           <div className="flex flex-col gap-2 px-6 pb-6">
             <div className="text-sm text-muted-foreground">
               Subject:{' '}
-              <span className="font-medium text-black">Quick update</span>
+              <span className="font-medium text-foreground">Quick update</span>
             </div>
-            <div className="border-t border-neutral-200 my-2" />
+            <div className="border-t border-[var(--border)] my-2" />
             <textarea
               placeholder={`Try saying:\n\n"Hi Jordan, wonderful meeting with you today. Do you have any time Monday to follow up on the project? Thanks, Taylor"`}
               className="w-full resize-none bg-transparent border-none focus:outline-none focus:ring-0 text-sm placeholder:text-muted-foreground"
@@ -87,12 +87,12 @@ export default function TryItOut() {
     if (selectedApp === 'notion') {
       return (
         <div
-          className="w-[475px] rounded-2xl bg-white shadow-lg flex flex-col"
+          className="w-[475px] rounded-2xl bg-[var(--card)] border border-[var(--border)] shadow-[var(--shadow-soft)] flex flex-col"
           style={{ minHeight: 280 }}
         >
-          <div className="flex items-center gap-2 mb-2 py-4 px-4 rounded-t-2xl border-b border-neutral-200 bg-neutral-100">
+          <div className="flex items-center gap-2 mb-2 py-4 px-4 rounded-t-2xl border-b border-[var(--border)] bg-[var(--muted)]">
             <div
-              className="bg-white rounded-md p-1"
+              className="bg-[var(--card)] border border-[var(--border)] rounded-md p-1"
               style={{ width: 24, height: 24 }}
             >
               <NotionIcon />
@@ -113,12 +113,12 @@ export default function TryItOut() {
     if (selectedApp === 'chatgpt') {
       return (
         <div
-          className="w-[475px] rounded-2xl bg-white shadow-lg flex flex-col"
+          className="w-[475px] rounded-2xl bg-[var(--card)] border border-[var(--border)] shadow-[var(--shadow-soft)] flex flex-col"
           style={{ minHeight: 280 }}
         >
-          <div className="flex items-center gap-2 mb-2 py-4 px-4 rounded-t-2xl border-b border-neutral-200 bg-neutral-100">
+          <div className="flex items-center gap-2 mb-2 py-4 px-4 rounded-t-2xl border-b border-[var(--border)] bg-[var(--muted)]">
             <div
-              className="bg-white rounded-md p-1"
+              className="bg-[var(--card)] border border-[var(--border)] rounded-md p-1"
               style={{ width: 24, height: 24 }}
             >
               <ChatGPTIcon />
@@ -127,7 +127,7 @@ export default function TryItOut() {
           </div>
           <div className="flex-1 flex flex-col justify-end px-4 gap-2">
             <div className="flex-1 flex flex-col justify-end px-6 py-8 gap-2"></div>
-            <div className="flex items-center mb-4 bg-neutral-100 rounded-2xl">
+            <div className="flex items-center mb-4 bg-[var(--muted)] rounded-2xl border border-[var(--border)]">
               <input
                 type="text"
                 placeholder="Ask AI to generate a React component"
@@ -148,7 +148,7 @@ export default function TryItOut() {
             <div>
               <div className="flex items-center gap-2 mb-4 rounded-t-2xl">
                 <div
-                  className="bg-neutral-100 rounded-md p-1"
+                  className="bg-[var(--muted)] border border-[var(--border)] rounded-md p-1"
                   style={{ width: 24, height: 24 }}
                 >
                   <CursorIcon />
@@ -216,7 +216,7 @@ export default function TryItOut() {
               Hold down on the{' '}
               {keyboardShortcut.map((key, idx) => (
                 <React.Fragment key={`keyboard-shortcut-${idx}`}>
-                  <span className="inline-flex items-center px-2 py-0.5 bg-neutral-100 border rounded text-xs font-mono mx-1">
+                  <span className="inline-flex items-center px-2 py-0.5 bg-[var(--muted)] border border-[var(--border)] rounded text-xs font-mono mx-1">
                     {getKeyDisplay(key, platform, {
                       showDirectionalText: false,
                       format: 'label',
@@ -238,21 +238,21 @@ export default function TryItOut() {
           </div>
         </div>
       </div>
-      <div className="flex w-[55%] items-center justify-center bg-gradient-to-b from-purple-50/10 to-purple-100 border-l-2 border-purple-100">
+      <div className="flex w-[55%] items-center justify-center bg-gradient-to-b from-indigo-50/20 to-indigo-100/60 border-l border-[var(--border)]">
         <div className="flex flex-col items-center h-full justify-between pt-36 pb-24">
           {renderDemo()}
           <div className="flex flex-col">
-            <div className="flex flex-row gap-2 px-4 pt-3 pb-5 rounded-2xl bg-gray-300/70">
+            <div className="flex flex-row gap-2 px-4 pt-3 pb-5 rounded-2xl bg-[rgba(15,23,42,0.06)] border border-[rgba(15,23,42,0.08)]">
               {apps.map(app => (
                 <div
                   key={app.key}
-                  className="relative bg-white p-2 rounded-md shadow-md cursor-pointer flex items-center justify-center"
+                  className="relative bg-[var(--card)] p-2 rounded-xl shadow-[var(--shadow-card)] cursor-pointer flex items-center justify-center border border-[var(--border)] hover:-translate-y-0.5 transition-transform"
                   style={{ width: 48, height: 48 }}
                   onClick={() => setSelectedApp(app.key as typeof selectedApp)}
                 >
                   {app.icon}
                   {selectedApp === app.key && (
-                    <span className="absolute left-1/2 -translate-x-1/2 -bottom-3 w-2 h-2 rounded-full bg-white shadow" />
+                    <span className="absolute left-1/2 -translate-x-1/2 -bottom-3 w-2 h-2 rounded-full bg-[var(--card)] border border-[var(--border)] shadow-sm" />
                   )}
                 </div>
               ))}

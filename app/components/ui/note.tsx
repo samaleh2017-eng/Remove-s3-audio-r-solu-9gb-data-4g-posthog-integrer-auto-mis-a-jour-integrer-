@@ -65,7 +65,7 @@ export function Note({
   return (
     <div
       key={note.id}
-      className="bg-white rounded-[var(--radius-lg)] border border-[rgba(31,31,31,0.03)] p-[18px_20px] shadow-[var(--shadow-card)] group relative transition-all duration-180 hover:-translate-y-1 hover:shadow-[0_16px_36px_rgba(31,31,31,0.07)]"
+      className="bg-[var(--card)] rounded-[var(--radius-lg)] border border-[var(--border)] p-[18px_20px] shadow-[var(--shadow-card)] group relative transition-all duration-180 hover:-translate-y-1 hover:shadow-[0_18px_44px_rgba(15,23,42,0.12)]"
     >
       {/* Hover Icons */}
       <div className="absolute top-2 right-2 opacity-0 group-hover:shadow-sm group-hover:opacity-100 transition-opacity duration-200 flex items-center rounded-md border border-[var(--border)]">
@@ -88,7 +88,7 @@ export function Note({
 
           {/* Dropdown Menu */}
           {showDropdown === index && (
-            <div className="absolute top-full right-0 mt-1 w-48 bg-white border border-[var(--border)] rounded-[var(--radius-lg)] shadow-[var(--shadow-soft)] z-10">
+            <div className="absolute top-full right-0 mt-1 w-48 bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] shadow-[var(--shadow-soft)] z-10">
               <button
                 onClick={e => {
                   e.stopPropagation()

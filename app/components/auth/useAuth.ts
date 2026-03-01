@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import { useAuthStore } from '../../store/useAuthStore'
-import { type AuthUser, type AuthTokens } from '../../../lib/main/store'
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { useMainStore } from '@/app/store/useMainStore'
+import { type AuthUser } from '../../../lib/main/store'
 import { analytics, ANALYTICS_EVENTS } from '../analytics'
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { STORE_KEYS } from '../../../lib/constants/store-keys'
 import { useOnboardingStore } from '@/app/store/useOnboardingStore'
 import { supabase, AUTH_DISABLED } from './supabaseClient'
 import { useSupabaseContext } from './SupabaseProvider'
@@ -21,25 +17,20 @@ const localUser: AuthUser = {
   provider: 'local',
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const localTokens: AuthTokens = {
-  access_token: 'local-token',
-  id_token: 'local-id-token',
-  refresh_token: 'local-refresh-token',
-  expires_at: Date.now() + 365 * 24 * 60 * 60 * 1000,
-}
 
 export function useAuth() {
-  const { session, user: supabaseUser, isLoading: supabaseLoading } = useSupabaseContext()
+  const {
+    session,
+    user: supabaseUser,
+    isLoading: supabaseLoading,
+  } = useSupabaseContext()
   const {
     user: storedUser,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    tokens,
+    tokens: _tokens,
     setAuthData,
     clearAuth,
     isAuthenticated: storeIsAuthenticated,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    setName,
+    setName: _setName,
     setSelfHostedMode,
   } = useAuthStore()
 
@@ -53,14 +44,17 @@ export function useAuth() {
     return {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
-      name: supabaseUser.user_metadata?.full_name || supabaseUser.email?.split('@')[0] || 'User',
+      name:
+        supabaseUser.user_metadata?.full_name ||
+        supabaseUser.email?.split('@')[0] ||
+        'User',
       picture: supabaseUser.user_metadata?.avatar_url,
       provider: 'email',
     }
   }, [session, supabaseUser, storedUser])
 
   const isAuthenticated = useMemo(() => {
-    return AUTH_DISABLED ? true : (!!session && !!supabaseUser)
+    return AUTH_DISABLED ? true : !!session && !!supabaseUser
   }, [session, supabaseUser])
 
   const isLoading = useMemo(() => {
@@ -86,23 +80,40 @@ export function useAuth() {
       if (storeIsAuthenticated && storedUser?.id === supabaseUser.id) {
         return
       }
-      
+
       const profile = {
         id: supabaseUser.id,
         email: supabaseUser.email,
-        name: supabaseUser.user_metadata?.full_name || supabaseUser.email?.split('@')[0] || 'User',
+        name:
+          supabaseUser.user_metadata?.full_name ||
+          supabaseUser.email?.split('@')[0] ||
+          'User',
       }
-      window.api.notifyLoginSuccess(profile, session.access_token, session.access_token)
-      
+      window.api.notifyLoginSuccess(
+        profile,
+        session.access_token,
+        session.access_token,
+      )
+
       const authTokens: AuthTokens = {
         access_token: session.access_token,
         id_token: session.access_token,
         refresh_token: session.refresh_token || '',
-        expires_at: session.expires_at ? session.expires_at * 1000 : Date.now() + 3600 * 1000,
+        expires_at: session.expires_at
+          ? session.expires_at * 1000
+          : Date.now() + 3600 * 1000,
       }
       setAuthData(authTokens, authUser, 'email')
     }
-  }, [session, supabaseUser, authUser, setAuthData, storeIsAuthenticated, setSelfHostedMode, storedUser?.id])
+  }, [
+    session,
+    supabaseUser,
+    authUser,
+    setAuthData,
+    storeIsAuthenticated,
+    setSelfHostedMode,
+    storedUser?.id,
+  ])
 
   const signupWithEmail = useCallback(
     async (email: string, password: string, fullName?: string) => {
@@ -177,7 +188,7 @@ export function useAuth() {
     clearAuth()
     resetMainState()
     resetOnboarding()
-    
+
     window.api.logout()
 
     analytics.track(ANALYTICS_EVENTS.AUTH_LOGOUT)
@@ -191,7 +202,7 @@ export function useAuth() {
   const refreshTokens = useCallback(async () => {
     if (AUTH_DISABLED || !supabase) return
 
-    const { data, error } = await supabase.auth.refreshSession()
+    const { error } = await supabase.auth.refreshSession()
     if (error) {
       console.error('Token refresh error:', error)
     }

@@ -114,8 +114,7 @@ export default function SignInContent() {
   const { clearAuth } = useAuthStore()
   const { loadNotes } = useNotesStore()
   const { loadEntries } = useDictionaryStore()
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { resetOnboarding } = useOnboardingStore()
+  const { resetOnboarding: _resetOnboarding } = useOnboardingStore()
   const [isServerHealthy, setIsServerHealthy] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -420,7 +419,7 @@ export default function SignInContent() {
         <div className="w-full max-w-md">
           {/* Logo */}
           <div className="mb-8 bg-black rounded-md p-2 w-10 h-10 mx-auto">
-            <ItoIcon height={24} width={24} style={{ color: '#FFFFFF' }} />
+            <ItoIcon height={24} width={24} className="text-white" />
           </div>
 
           {/* Title and subtitle */}

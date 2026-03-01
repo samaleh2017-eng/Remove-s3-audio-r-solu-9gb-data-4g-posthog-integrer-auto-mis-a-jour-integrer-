@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowUp, Pencil, Trash, Search, Sort, Refresh } from '@mynaui/icons-react'
+import {
+  ArrowUp,
+  Pencil,
+  Trash,
+  Search,
+  Sort,
+  Refresh,
+} from '@mynaui/icons-react'
 import { Tooltip, TooltipTrigger, TooltipContent } from '../../ui/tooltip'
 import { Switch } from '../../ui/switch'
 import { StatusIndicator } from '../../ui/status-indicator'
@@ -278,16 +285,17 @@ export default function DictionaryContent() {
       if (!searchQuery) return true
       const q = searchQuery.toLowerCase()
       if (entry.type === 'replacement') {
-        return entry.from.toLowerCase().includes(q) || entry.to.toLowerCase().includes(q)
+        return (
+          entry.from.toLowerCase().includes(q) ||
+          entry.to.toLowerCase().includes(q)
+        )
       }
       return entry.content.toLowerCase().includes(q)
     })
     .sort((a, b) => {
       const textA = a.type === 'replacement' ? a.from : a.content
       const textB = b.type === 'replacement' ? b.from : b.content
-      return sortAsc
-        ? textA.localeCompare(textB)
-        : textB.localeCompare(textA)
+      return sortAsc ? textA.localeCompare(textB) : textB.localeCompare(textA)
     })
 
   const noEntries = entries.length === 0
@@ -302,10 +310,12 @@ export default function DictionaryContent() {
       }}
     >
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-[30px] font-semibold tracking-tight font-sans">Dictionary</h1>
+        <h1 className="text-[30px] font-semibold tracking-tight font-sans">
+          Dictionary
+        </h1>
         <button
           onClick={handleAddNew}
-          className="bg-foreground text-white px-5 py-2.5 rounded-[var(--radius-lg)] text-sm font-medium hover:bg-warm-800 transition-colors cursor-pointer"
+          className="bg-foreground text-white px-5 py-2.5 rounded-[var(--radius-lg)] text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer"
         >
           Add new
         </button>
@@ -349,8 +359,8 @@ export default function DictionaryContent() {
             type="text"
             placeholder="Search dictionary..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-2.5 border border-[var(--border)] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ring)] bg-transparent placeholder-warm-400"
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full px-4 py-2.5 border border-[var(--border)] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ring)] bg-transparent placeholder:text-[var(--color-subtext)]"
             autoFocus
           />
         </div>
@@ -370,7 +380,7 @@ export default function DictionaryContent() {
         </div>
       )}
       {!noEntries && filteredEntries.length > 0 && (
-        <div className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-white overflow-hidden divide-y divide-[var(--border)] shadow-[var(--shadow-card)]">
+        <div className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)] overflow-hidden divide-y divide-[var(--border)] shadow-[var(--shadow-card)]">
           {filteredEntries.map((entry, index) => (
             <div
               key={entry.id}
@@ -506,7 +516,7 @@ export default function DictionaryContent() {
           </div>
           <DialogFooter className="p-4">
             <Button
-              className="bg-[var(--color-muted-bg)] hover:bg-warm-200 text-[var(--color-text)] cursor-pointer"
+              className="bg-[var(--color-muted-bg)] hover:bg-[var(--muted)] text-[var(--color-text)] cursor-pointer"
               onClick={handleCancelEdit}
             >
               Cancel
@@ -586,7 +596,7 @@ export default function DictionaryContent() {
           </div>
           <DialogFooter className="p-4">
             <Button
-              className="bg-[var(--color-muted-bg)] hover:bg-warm-200 text-[var(--color-text)] cursor-pointer"
+              className="bg-[var(--color-muted-bg)] hover:bg-[var(--muted)] text-[var(--color-text)] cursor-pointer"
               onClick={handleCancelNew}
             >
               Cancel

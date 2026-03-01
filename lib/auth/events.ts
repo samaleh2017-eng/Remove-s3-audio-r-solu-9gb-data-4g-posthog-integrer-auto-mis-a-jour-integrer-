@@ -111,7 +111,10 @@ export const handleLogin = (
 ) => {
   console.log('[DEBUG][auth/events] handleLogin called with profile:', profile)
   store.set(STORE_KEYS.USER_PROFILE, profile)
-  console.log('[DEBUG][auth/events] USER_PROFILE set, verifying:', store.get(STORE_KEYS.USER_PROFILE))
+  console.log(
+    '[DEBUG][auth/events] USER_PROFILE set, verifying:',
+    store.get(STORE_KEYS.USER_PROFILE),
+  )
 
   if (idToken) {
     store.set(STORE_KEYS.ID_TOKEN, idToken)
@@ -131,7 +134,10 @@ export const handleLogout = () => {
   store.delete(STORE_KEYS.USER_PROFILE)
   store.delete(STORE_KEYS.ID_TOKEN)
   store.delete(STORE_KEYS.ACCESS_TOKEN)
-  console.log('[DEBUG][auth/events] USER_PROFILE after delete:', store.get(STORE_KEYS.USER_PROFILE))
+  console.log(
+    '[DEBUG][auth/events] USER_PROFILE after delete:',
+    store.get(STORE_KEYS.USER_PROFILE),
+  )
   grpcClient.setAuthToken(null)
   syncService.stop()
 }
@@ -146,7 +152,9 @@ export const shouldRefreshToken = (expiresAt: number): boolean => {
 export const ensureValidTokens = async () => {
   const storedAuth = store.get(STORE_KEYS.AUTH)
   const tokens = storedAuth?.tokens
-  const storedAccessToken = store.get(STORE_KEYS.ACCESS_TOKEN) as string | undefined
+  const storedAccessToken = store.get(STORE_KEYS.ACCESS_TOKEN) as
+    | string
+    | undefined
 
   const accessToken = tokens?.access_token || storedAccessToken
   if (!accessToken) {
@@ -165,11 +173,18 @@ export const ensureValidTokens = async () => {
 
   if (!mainWindow || mainWindow.isDestroyed()) {
     console.warn('[ensureValidTokens] No main window available for IPC refresh')
-    return { success: false, error: 'No main window available for token refresh' }
+    return {
+      success: false,
+      error: 'No main window available for token refresh',
+    }
   }
 
-  const safeSupabaseUrl = JSON.stringify(import.meta.env.VITE_SUPABASE_URL || '')
-  const safeAnonKey = JSON.stringify(import.meta.env.VITE_SUPABASE_ANON_KEY || '')
+  const safeSupabaseUrl = JSON.stringify(
+    import.meta.env.VITE_SUPABASE_URL || '',
+  )
+  const safeAnonKey = JSON.stringify(
+    import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+  )
 
   try {
     const result = await mainWindow.webContents.executeJavaScript(

@@ -70,52 +70,61 @@ export default function SettingsContent() {
   }
 
   return (
-    <div className="flex h-full">
-      <div className="w-[260px] flex-shrink-0 flex flex-col justify-between py-6 px-5 border-r border-[#E8E8E8]">
-        <div>
-          <div className="text-xs font-semibold tracking-[1.5px] text-[#999] uppercase mb-3 px-3">
-            Settings
+    <div className="flex h-full flex-col md:flex-row">
+      <div className="w-full md:w-[280px] flex-shrink-0 flex flex-col justify-between py-5 px-4 md:px-5 border-b md:border-b-0 md:border-r border-[var(--border)] bg-[var(--color-muted-bg)]">
+        <div className="space-y-6">
+          <div>
+            <div className="text-xs font-semibold tracking-[1.5px] text-[var(--muted-foreground)] uppercase mb-3 px-2">
+              Settings
+            </div>
+            <div className="grid grid-cols-2 md:flex md:flex-col gap-1">
+              {settingsNavItems.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => setSettingsPage(item.id as any)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors cursor-pointer ${
+                    settingsPage === item.id
+                      ? 'bg-[var(--sidebar-active)] text-[var(--sidebar-active-text)] font-medium shadow-sm'
+                      : 'text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-foreground'
+                  }`}
+                >
+                  <item.icon className="w-5 h-5" />
+                  <span className="truncate">{item.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex flex-col gap-0.5">
-            {settingsNavItems.map(item => (
-              <button
-                key={item.id}
-                onClick={() => setSettingsPage(item.id as any)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors cursor-pointer ${
-                  settingsPage === item.id
-                    ? 'bg-[#F2F2F2] font-medium text-[#1f1f1f]'
-                    : 'text-[#666] hover:bg-[#F8F8F8] hover:text-[#333]'
-                }`}
-              >
-                <item.icon className="w-5 h-5" />
-                {item.label}
-              </button>
-            ))}
-          </div>
-          <div className="text-xs font-semibold tracking-[1.5px] text-[#999] uppercase mb-3 mt-6 px-3">
-            Account
-          </div>
-          <div className="flex flex-col gap-0.5">
-            {accountNavItems.map(item => (
-              <button
-                key={item.id}
-                onClick={() => setSettingsPage(item.id as any)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors cursor-pointer ${
-                  settingsPage === item.id
-                    ? 'bg-[#F2F2F2] font-medium text-[#1f1f1f]'
-                    : 'text-[#666] hover:bg-[#F8F8F8] hover:text-[#333]'
-                }`}
-              >
-                <item.icon className="w-5 h-5" />
-                {item.label}
-              </button>
-            ))}
+
+          <div>
+            <div className="text-xs font-semibold tracking-[1.5px] text-[var(--muted-foreground)] uppercase mb-3 px-2">
+              Account
+            </div>
+            <div className="grid grid-cols-2 md:flex md:flex-col gap-1">
+              {accountNavItems.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => setSettingsPage(item.id as any)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors cursor-pointer ${
+                    settingsPage === item.id
+                      ? 'bg-[var(--sidebar-active)] text-[var(--sidebar-active-text)] font-medium shadow-sm'
+                      : 'text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-foreground'
+                  }`}
+                >
+                  <item.icon className="w-5 h-5" />
+                  <span className="truncate">{item.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-        <div className="text-xs text-[#aaa] px-3">Ito v0.2.3</div>
+
+        <div className="text-xs text-[var(--muted-foreground)] px-2">
+          Ito v0.2.3
+        </div>
       </div>
-      <div className="flex-1 py-6 px-10 overflow-y-auto">
-        <h1 className="font-sans text-2xl font-semibold text-[#1f1f1f] mb-6">
+
+      <div className="flex-1 py-6 px-6 md:px-10 overflow-y-auto">
+        <h1 className="font-sans text-2xl md:text-[28px] font-semibold text-foreground mb-6 tracking-tight">
           {pageTitles[settingsPage] ?? 'General'}
         </h1>
         <div>{renderSettingsContent()}</div>

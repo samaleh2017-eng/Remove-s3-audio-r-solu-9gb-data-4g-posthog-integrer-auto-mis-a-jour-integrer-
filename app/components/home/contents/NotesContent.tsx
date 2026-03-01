@@ -2,7 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { useNotesStore } from '../../../store/useNotesStore'
 import { useSettingsStore } from '../../../store/useSettingsStore'
 import Masonry from '@mui/lab/Masonry'
-import { ArrowUp, Grid, Rows, Search, X, Microphone, Refresh } from '@mynaui/icons-react'
+import {
+  ArrowUp,
+  Grid,
+  Rows,
+  Search,
+  X,
+  Microphone,
+  Refresh,
+} from '@mynaui/icons-react'
 import { Note } from '../../ui/note'
 import { StatusIndicator } from '../../ui/status-indicator'
 import {
@@ -82,15 +90,6 @@ export default function NotesContent() {
 
   const updateNoteContent = (content: string) => {
     setNoteContent(content)
-    const fmt = new Intl.DateTimeFormat('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      fractionalSecondDigits: 3,
-      hour12: false,
-    })
-
-    const timestamp = fmt.format(new Date())
     if (content.trim() !== '') {
       setShowAddNoteButton(true)
     } else {
@@ -330,7 +329,7 @@ export default function NotesContent() {
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search your notes"
-            className="flex-1 text-sm outline-none placeholder-warm-400 bg-transparent"
+            className="flex-1 text-sm outline-none placeholder:text-[var(--color-subtext)] bg-transparent"
           />
           <button
             onClick={closeSearch}
@@ -342,7 +341,9 @@ export default function NotesContent() {
         </div>
       ) : (
         <div className="flex items-center justify-between mb-8">
-          <h1 className="font-bold text-lg text-center w-full font-sans">For quick thoughts you want to come back to</h1>
+          <h1 className="font-bold text-lg text-center w-full font-sans">
+            For quick thoughts you want to come back to
+          </h1>
         </div>
       )}
 
@@ -356,7 +357,9 @@ export default function NotesContent() {
           }}
         >
           <div className="flex items-center justify-between p-5 rounded-[var(--radius-lg)] bg-[var(--color-surface)] border border-[var(--border)] shadow-[var(--shadow-soft)] hover:shadow-soft transition-shadow">
-            <span className="text-[var(--color-subtext)] text-sm">Take a quick note with your voice</span>
+            <span className="text-[var(--color-subtext)] text-sm">
+              Take a quick note with your voice
+            </span>
             <div
               className="w-12 h-12 rounded-full bg-[var(--primary)] text-white flex items-center justify-center shadow-[0_6px_14px_rgba(31,31,31,0.08)] hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(31,31,31,0.12)] transition-all duration-180 focus:outline-none focus:ring-3 focus:ring-[rgba(31,31,31,0.12)]"
               aria-label="Start voice note"
@@ -384,7 +387,7 @@ export default function NotesContent() {
             <div className="absolute bottom-3 right-3">
               <button
                 onClick={handleAddNote}
-                className="bg-[var(--color-muted-bg)] px-4 py-2 rounded-lg font-semibold hover:bg-warm-200 cursor-pointer"
+                className="bg-[var(--color-muted-bg)] px-4 py-2 rounded-lg font-semibold hover:bg-[var(--muted)] cursor-pointer"
               >
                 Add note
               </button>
@@ -529,7 +532,7 @@ export default function NotesContent() {
           </div>
           <DialogFooter className="p-4">
             <Button
-              className="bg-[var(--color-muted-bg)] hover:bg-warm-200 text-[var(--color-text)] cursor-pointer"
+              className="bg-[var(--color-muted-bg)] hover:bg-[var(--muted)] text-[var(--color-text)] cursor-pointer"
               onClick={handleCancelEdit}
             >
               Cancel

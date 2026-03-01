@@ -14,19 +14,26 @@ export const OnboardingTitlebar = () => {
 
   return (
     <>
-      {/* Onboarding Steps Text */}
-      <div className="onboarding-steps-text">
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[2] text-[12px] font-medium tracking-[0.14em]">
         {['Sign Up', 'Permissions', 'Set Up', 'Try it'].map(
           (step, idx, arr) => (
             <React.Fragment key={step}>
               <span
-                className={`onboarding-step-label${idx <= onboardingCategoryIndex ? ' active' : ''}`}
+                className={`inline-flex items-center mx-6 transition-opacity ${
+                  idx <= onboardingCategoryIndex
+                    ? 'text-foreground opacity-100'
+                    : 'text-[color:var(--muted-foreground)] opacity-70'
+                }`}
               >
                 {step.toUpperCase()}
               </span>
               {idx < arr.length - 1 && (
                 <span
-                  className={`onboarding-step-chevron${idx < onboardingCategoryIndex ? ' active' : ''}`}
+                  className={`inline-flex items-center text-[20px] mx-6 -mt-1 ${
+                    idx < onboardingCategoryIndex
+                      ? 'text-foreground opacity-70'
+                      : 'text-[color:var(--muted-foreground)] opacity-40'
+                  }`}
                   aria-hidden="true"
                 >
                   &#8250;
@@ -36,65 +43,13 @@ export const OnboardingTitlebar = () => {
           ),
         )}
       </div>
-      {/* Onboarding Progress Bar */}
-      <div className="onboarding-progress-bar-bg">
-        <div className="onboarding-progress-bar-fg" />
+
+      <div className="absolute left-0 right-0 bottom-0 h-[3px] bg-[var(--muted)] rounded-full overflow-hidden pointer-events-none z-[1]">
+        <div
+          className="h-full bg-[var(--ring)] rounded-full transition-[width] duration-300 ease-out"
+          style={{ width: `${onboardingProgress}%` }}
+        />
       </div>
-      <style>{`
-        .onboarding-steps-text {
-          position: absolute;
-          left: 0;
-          right: 0;
-          top: 0;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          pointer-events: none;
-          z-index: 2;
-          font-size: 14px;
-          font-weight: 500;
-        }
-        .onboarding-step-label {
-          color: #b0b0b0;
-          font-weight: 400;
-          transition: color 0.2s, font-weight 0.2s;
-          display: inline-flex;
-          align-items: center;
-          margin: 0 36px;
-        }
-        .onboarding-step-chevron {
-          color: #d0d0d0;
-          font-size: 24px;
-          margin: 0 36px;
-          margin-top: -4px;
-          display: inline-flex;
-          align-items: center;
-        }
-        .onboarding-step-label.active, .onboarding-step-chevron.active {
-          color: #222;
-          font-weight: 500;
-        }
-        .onboarding-progress-bar-bg {
-          position: absolute;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          height: 3px;
-          background: #ececec;
-          border-radius: 2px;
-          overflow: hidden;
-          pointer-events: none;
-          z-index: 1;
-        }
-        .onboarding-progress-bar-fg {
-          height: 100%;
-          width: ${onboardingProgress}%;
-          background: linear-gradient(90deg, #8aa6cf 0%, #43679d 100%);
-          border-radius: 2px;
-          transition: width 0.4s cubic-bezier(0.4,0,0.2,1);
-        }
-      `}</style>
     </>
   )
 }

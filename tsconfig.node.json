@@ -2,6 +2,7 @@
   "extends": "@electron-toolkit/tsconfig/tsconfig.node.json",
   "include": [
     "lib/main/index.d.ts",
+    "app/index.d.ts",
     "vite-env.d.ts",
     "electron.vite.config.*",
     "lib/**/*",

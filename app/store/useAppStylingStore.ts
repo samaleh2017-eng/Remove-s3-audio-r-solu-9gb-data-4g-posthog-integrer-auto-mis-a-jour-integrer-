@@ -43,14 +43,18 @@ type AppStylingState = {
   loadAppTargets: () => Promise<void>
   loadTones: () => Promise<void>
   detectCurrentApp: () => Promise<DetectedContext | null>
-  registerApp: (matchType: MatchType, appName: string, domain?: string | null) => Promise<AppTarget | null>
+  registerApp: (
+    matchType: MatchType,
+    appName: string,
+    domain?: string | null,
+  ) => Promise<AppTarget | null>
   updateAppTone: (appId: string, toneId: string | null) => Promise<void>
   deleteAppTarget: (appId: string) => Promise<void>
   getCurrentAppTarget: () => Promise<AppTarget | null>
   clearDetectedContext: () => void
 }
 
-export const useAppStylingStore = create<AppStylingState>((set) => ({
+export const useAppStylingStore = create<AppStylingState>(set => ({
   appTargets: {},
   tones: {},
   isLoading: false,
@@ -66,7 +70,7 @@ export const useAppStylingStore = create<AppStylingState>((set) => ({
             acc[t.id] = t
             return acc
           },
-          {}
+          {},
         ),
       })
     } catch (error) {
@@ -103,11 +107,16 @@ export const useAppStylingStore = create<AppStylingState>((set) => ({
     }
   },
 
-  registerApp: async (matchType: MatchType, appName: string, domain?: string | null) => {
+  registerApp: async (
+    matchType: MatchType,
+    appName: string,
+    domain?: string | null,
+  ) => {
     try {
-      const id = matchType === 'domain' && domain
-        ? `domain:${domain}`
-        : appName.toLowerCase().replace(/[^a-z0-9]/g, '-')
+      const id =
+        matchType === 'domain' && domain
+          ? `domain:${domain}`
+          : appName.toLowerCase().replace(/[^a-z0-9]/g, '-')
 
       const name = matchType === 'domain' && domain ? domain : appName
 

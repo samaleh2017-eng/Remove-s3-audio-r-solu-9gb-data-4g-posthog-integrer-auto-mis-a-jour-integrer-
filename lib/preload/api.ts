@@ -181,7 +181,8 @@ const api = {
     delete: (id: string) => ipcRenderer.invoke('app-targets:delete', id),
     detectCurrent: () => ipcRenderer.invoke('app-targets:detect-current'),
     getCurrent: () => ipcRenderer.invoke('app-targets:get-current'),
-    listInstalledApps: (): Promise<string[]> => ipcRenderer.invoke('app-targets:list-installed-apps'),
+    listInstalledApps: (): Promise<string[]> =>
+      ipcRenderer.invoke('app-targets:list-installed-apps'),
   },
   tones: {
     list: () => ipcRenderer.invoke('tones:list'),

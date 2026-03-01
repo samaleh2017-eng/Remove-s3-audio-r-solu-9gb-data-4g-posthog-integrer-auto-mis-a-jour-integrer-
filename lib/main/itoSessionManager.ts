@@ -334,7 +334,9 @@ export class ItoSessionManager {
 
   private async completeSonioxSession() {
     if (!this.sonioxSessionActive) {
-      console.warn('[itoSessionManager] completeSonioxSession called but no active session, skipping')
+      console.warn(
+        '[itoSessionManager] completeSonioxSession called but no active session, skipping',
+      )
       return
     }
     this.sonioxSessionActive = false
@@ -359,7 +361,10 @@ export class ItoSessionManager {
       try {
         rawTranscript = await service.stop()
       } catch (error) {
-        console.error('[itoSessionManager] Error stopping Soniox service:', error)
+        console.error(
+          '[itoSessionManager] Error stopping Soniox service:',
+          error,
+        )
         rawTranscript = service.getAccumulatedText() || ''
       }
     }
@@ -428,7 +433,10 @@ export class ItoSessionManager {
 
         this.textInserter.insertText(textToInsert)
       } else {
-        console.error('[itoSessionManager] LLM adjustment failed:', response.error)
+        console.error(
+          '[itoSessionManager] LLM adjustment failed:',
+          response.error,
+        )
         this.textInserter.insertText(rawTranscript)
       }
     } catch (error) {
@@ -574,7 +582,10 @@ export class ItoSessionManager {
     this.sonioxService = null
 
     voiceInputService.stopAudioRecording().catch(e => {
-      console.error('[itoSessionManager] Error stopping audio after Soniox error:', e)
+      console.error(
+        '[itoSessionManager] Error stopping audio after Soniox error:',
+        e,
+      )
     })
 
     recordingStateNotifier.notifyRecordingStopped()
