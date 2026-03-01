@@ -19,6 +19,7 @@ const DEFAULT_LOCAL_USER_ID = 'local-user'
 const DETECTION_TIMEOUT_MS = 800
 
 const BROWSER_URL_TIMEOUT_MS = 500
+const BROWSER_FIRST_EMIT_TIMEOUT_MS = 350
 
 const KNOWN_BROWSERS = new Set([
   'google chrome',
@@ -147,6 +148,25 @@ export class RecordingStateNotifier {
       }
     }
 
+    const isBrowser = !!immediateName && this.isBrowserApp(immediateName)
+    let resolvePromise: Promise<{
+      name: string
+      iconBase64: string | null
+    } | null> | null = null
+
+    if (isBrowser) {
+      resolvePromise = this.resolveAppTargetWithIcon()
+      const timeout = new Promise<null>(r =>
+        setTimeout(() => r(null), BROWSER_FIRST_EMIT_TIMEOUT_MS),
+      )
+      const quickResult = await Promise.race([resolvePromise, timeout])
+      if (gen !== this.generation) return
+      if (quickResult) {
+        immediateName = quickResult.name
+        immediateIcon = quickResult.iconBase64 ?? immediateIcon
+      }
+    }
+
     this.lastSentAppName = immediateName
     this.lastSentAppIcon = immediateIcon
     this.setupWindowChangeListener(gen, mode)
@@ -160,7 +180,8 @@ export class RecordingStateNotifier {
       screenThumbnailBase64: screenThumbnailBase64 ?? undefined,
     })
 
-    this.resolveAppTargetWithIcon()
+    const pendingResolve = resolvePromise ?? this.resolveAppTargetWithIcon()
+    pendingResolve
       .then(result => {
         if (gen !== this.generation) return
         if (!result) return
@@ -214,7 +235,18 @@ export class RecordingStateNotifier {
         return
       }
 
-      await new Promise(r => setTimeout(r, 150))
+      const preState = activeWindowMonitor.getCachedState()
+      const isBrowserSwitch =
+        !!preState?.window?.appName &&
+        this.isBrowserApp(preState.window.appName)
+
+      if (isBrowserSwitch) {
+        await activeWindowMonitor.waitForBrowserUrl(300)
+      } else {
+        await new Promise(r => setTimeout(r, 150))
+      }
+
+      if (gen !== this.generation) return
 
       const result = await this.resolveAppTargetWithIcon()
       if (gen !== this.generation) return

@@ -232,6 +232,22 @@ export class ActiveWindowMonitor extends EventEmitter {
     }
   }
 
+  public waitForBrowserUrl(timeoutMs: number): Promise<void> {
+    if (!this.isBrowserUrlFetching) return Promise.resolve()
+
+    return new Promise(resolve => {
+      const start = Date.now()
+      const check = () => {
+        if (!this.isBrowserUrlFetching || Date.now() - start >= timeoutMs) {
+          resolve()
+          return
+        }
+        setTimeout(check, 15)
+      }
+      setTimeout(check, 15)
+    })
+  }
+
   public requestIcon(): Promise<string | null> {
     return new Promise(resolve => {
       if (!this.process?.stdin?.writable) {
