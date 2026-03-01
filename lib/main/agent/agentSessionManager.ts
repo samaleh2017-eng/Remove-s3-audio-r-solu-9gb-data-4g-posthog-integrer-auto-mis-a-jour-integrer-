@@ -1,4 +1,5 @@
 import { ItoMode } from '@/app/generated/ito_pb'
+import { Notification } from 'electron'
 import { recordingStateNotifier } from '../recordingStateNotifier'
 import { voiceInputService } from '../voiceInputService'
 import { itoStreamController } from '../itoStreamController'
@@ -8,6 +9,7 @@ import { getAdvancedSettings } from '../store'
 import { audioRecorderService } from '../../media/audio'
 import { SonioxStreamingService } from '../soniox/SonioxStreamingService'
 import { sonioxTempKeyManager } from '../soniox/SonioxTempKeyManager'
+import { setFocusedText } from '../../media/text-writer'
 import { runAgent } from './agentRunner'
 import { resetToolState } from './tools'
 
@@ -184,12 +186,28 @@ class AgentSessionManager {
 
   private async runAgentWithTranscript(transcript: string) {
     const result = await runAgent(transcript)
+
     if (result.isError) {
-      console.error(`[AgentSession] Agent error: ${result.response}`)
-    } else if (result.textWritten) {
+      new Notification({
+        title: 'Agent error',
+        body: result.response || 'An unexpected error occurred.',
+      }).show()
+      return
+    }
+
+    if (result.textWritten) {
       console.info('[AgentSession] Agent wrote text to field')
-    } else {
-      console.info(`[AgentSession] Agent response: ${result.response}`)
+      return
+    }
+
+    if (result.response) {
+      const typed = await setFocusedText(result.response).catch(() => false)
+      if (!typed) {
+        new Notification({
+          title: 'Agent',
+          body: result.response,
+        }).show()
+      }
     }
   }
 
