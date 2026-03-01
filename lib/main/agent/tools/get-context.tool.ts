@@ -9,6 +9,12 @@ import { BaseTool } from './base.tool'
 
 const AGENT_CURSOR_CONTEXT_LENGTH = 1000
 
+const BROWSER_APPS = new Set([
+  'google chrome', 'chrome', 'firefox', 'mozilla firefox',
+  'safari', 'microsoft edge', 'edge', 'opera', 'brave browser',
+  'brave', 'vivaldi', 'arc', 'chromium', 'waterfox', 'tor browser',
+])
+
 export class GetContextTool extends BaseTool<Record<string, unknown>> {
   readonly name = 'get_context'
   readonly displayName = 'Get Context'
@@ -94,9 +100,11 @@ export class GetContextTool extends BaseTool<Record<string, unknown>> {
 
     if (!textContent && !selectedText) {
       const appName = activeWindow?.appName || ''
-      const skipCursorContext = appName && isTerminalApplication(appName)
+      const lowerAppName = appName.toLowerCase()
+      const isBrowser = BROWSER_APPS.has(lowerAppName)
+      const skipCursorContext = isBrowser || (appName && isTerminalApplication(appName))
       if (skipCursorContext) {
-        console.info(`[GetContextTool] Skipping cursor context for terminal app: ${appName}`)
+        console.info(`[GetContextTool] Skipping cursor context for ${isBrowser ? 'browser' : 'terminal'} app: ${appName}`)
       } else {
         console.info(`[GetContextTool] No selected text, trying cursor context (${AGENT_CURSOR_CONTEXT_LENGTH} chars)...`)
         try {
