@@ -1,5 +1,5 @@
 import { ItoMode } from '@/app/generated/ito_pb'
-import { Notification } from 'electron'
+import { Notification, BrowserWindow } from 'electron'
 import { recordingStateNotifier } from '../recordingStateNotifier'
 import { voiceInputService } from '../voiceInputService'
 import { itoStreamController } from '../itoStreamController'
@@ -10,8 +10,9 @@ import { audioRecorderService } from '../../media/audio'
 import { SonioxStreamingService } from '../soniox/SonioxStreamingService'
 import { sonioxTempKeyManager } from '../soniox/SonioxTempKeyManager'
 import { setFocusedText } from '../../media/text-writer'
-import { runAgent } from './agentRunner'
-import { resetToolState } from './tools'
+import { Agent } from './agent'
+import { GetContextTool, DraftTool, WriteToTextFieldTool, StopTool } from './tools'
+import type { AgentWindowMessage, AgentWindowState } from './types'
 
 const MINIMUM_AUDIO_DURATION_MS = 100
 
@@ -25,9 +26,63 @@ class AgentSessionManager {
   private sonioxService: SonioxStreamingService | null = null
   private sonioxAudioHandler: ((chunk: Buffer) => void) | null = null
 
+  private agent: Agent | null = null
+  private stopTool: StopTool | null = null
+  private draftTool: DraftTool | null = null
+  private writeToTextFieldTool: WriteToTextFieldTool | null = null
+  private uiMessages: AgentWindowMessage[] = []
+  private currentDraft: string | null = null
+
+  private initAgent(): Agent {
+    console.info('[AgentSession] Initializing agent with tools')
+
+    this.stopTool = new StopTool()
+    this.draftTool = new DraftTool()
+    this.writeToTextFieldTool = new WriteToTextFieldTool()
+
+    this.draftTool.setOnDraftUpdated((draft) => {
+      this.currentDraft = draft
+      this.broadcastWindowState()
+    })
+
+    this.writeToTextFieldTool.setStopTool(this.stopTool)
+    this.writeToTextFieldTool.setDraftTool(this.draftTool)
+
+    const tools = [
+      new GetContextTool(),
+      this.draftTool,
+      this.writeToTextFieldTool,
+      this.stopTool,
+    ]
+
+    return new Agent(tools)
+  }
+
+  private broadcastWindowState(): void {
+    const state: AgentWindowState = {
+      messages: this.uiMessages.map((m) => ({
+        ...m,
+        tools: m.tools ? [...m.tools] : undefined,
+      })),
+    }
+    BrowserWindow.getAllWindows().forEach((window) => {
+      if (!window.webContents.isDestroyed()) {
+        window.webContents.send('agent-window-update', state)
+      }
+    })
+  }
+
   public async startSession() {
     console.info('[AgentSession] Starting agent session')
     interactionManager.initialize()
+
+    if (!this.agent) {
+      this.agent = this.initAgent()
+    }
+
+    this.uiMessages = []
+    this.currentDraft = null
+    this.broadcastWindowState()
 
     const { llm } = getAdvancedSettings()
     const isSoniox = llm?.asrProvider === 'soniox'
@@ -99,7 +154,11 @@ class AgentSessionManager {
       itoStreamController.clearInteractionAudio()
       recordingStateNotifier.notifyRecordingStopped()
       if (responsePromise) {
-        try { await responsePromise } catch { /* expected */ }
+        try {
+          await responsePromise
+        } catch {
+          /* expected */
+        }
       }
       allowAppNap()
       return
@@ -126,12 +185,12 @@ class AgentSessionManager {
         recordingStateNotifier.notifyProcessingStopped()
         allowAppNap()
         itoStreamController.clearInteractionAudio()
-        resetToolState()
+        this.resetToolState()
       }
     } else {
       recordingStateNotifier.notifyProcessingStopped()
       allowAppNap()
-      resetToolState()
+      this.resetToolState()
     }
   }
 
@@ -173,14 +232,45 @@ class AgentSessionManager {
     } finally {
       recordingStateNotifier.notifyProcessingStopped()
       allowAppNap()
-      resetToolState()
+      this.resetToolState()
     }
   }
 
   private async runAgentWithTranscript(transcript: string) {
-    const result = await runAgent(transcript)
+    if (!this.agent) {
+      this.agent = this.initAgent()
+    }
+
+    this.uiMessages.push({ text: transcript, sender: 'me' })
+    this.broadcastWindowState()
+
+    const liveTools: string[] = []
+    this.uiMessages.push({ text: '', sender: 'agent', tools: liveTools })
+
+    console.info(`[AgentSession] Running agent with transcript (${transcript.length} chars)`)
+
+    const result = await this.agent.run(transcript, {
+      onToolExecuted: (tool) => {
+        console.info(`[AgentSession] Tool executed: ${tool.displayName}`)
+        liveTools.push(tool.displayName)
+        this.broadcastWindowState()
+      },
+    })
+
+    console.info(
+      `[AgentSession] Agent response: ${result.response?.length ?? 0} chars, history=${result.history.length} turns`,
+    )
+
+    this.uiMessages.pop()
 
     if (result.isError) {
+      this.uiMessages.push({
+        text: result.response || 'An unexpected error occurred.',
+        sender: 'agent',
+        isError: true,
+      })
+      this.broadcastWindowState()
+
       new Notification({
         title: 'Agent error',
         body: result.response || 'An unexpected error occurred.',
@@ -188,12 +278,41 @@ class AgentSessionManager {
       return
     }
 
-    if (result.textWritten) {
+    const hasWritten = result.history.some(
+      (m) =>
+        m.type === 'assistant' &&
+        m.tools.some((t) => t.name === 'write_to_text_field' && t.didSucceed),
+    )
+
+    if (hasWritten) {
+      const lastMsg = result.history[result.history.length - 1]
+      const toolDisplayNames =
+        lastMsg?.type === 'assistant' ? lastMsg.tools.map((t) => t.displayName) : []
+
+      this.uiMessages.push({
+        text: result.response || 'Done!',
+        sender: 'agent',
+        tools: toolDisplayNames,
+        draft: this.currentDraft ?? undefined,
+      })
+      this.currentDraft = null
+      this.broadcastWindowState()
       console.info('[AgentSession] Agent wrote text to field')
       return
     }
 
     if (result.response) {
+      const lastMsg = result.history[result.history.length - 1]
+      const toolDisplayNames =
+        lastMsg?.type === 'assistant' ? lastMsg.tools.map((t) => t.displayName) : []
+
+      this.uiMessages.push({
+        text: result.response,
+        sender: 'agent',
+        tools: toolDisplayNames,
+      })
+      this.broadcastWindowState()
+
       const typed = await setFocusedText(result.response).catch(() => false)
       if (!typed) {
         new Notification({
@@ -202,11 +321,23 @@ class AgentSessionManager {
         }).show()
       }
     } else {
+      this.uiMessages.push({
+        text: 'Done — nothing to write.',
+        sender: 'agent',
+      })
+      this.broadcastWindowState()
+
       new Notification({
         title: 'Agent',
         body: 'Done — nothing to write.',
       }).show()
     }
+  }
+
+  private resetToolState() {
+    this.stopTool?.reset()
+    this.draftTool?.clearDraft()
+    this.currentDraft = null
   }
 
   public cancelSession() {
@@ -224,7 +355,24 @@ class AgentSessionManager {
     recordingStateNotifier.notifyProcessingStopped()
     allowAppNap()
     this.streamResponsePromise = null
-    resetToolState()
+    this.resetToolState()
+  }
+
+  public async cleanup() {
+    console.info('[AgentSession] Full cleanup')
+    this.agent?.clearHistory()
+    this.uiMessages = []
+    this.agent = null
+    this.stopTool = null
+    this.draftTool = null
+    this.writeToTextFieldTool = null
+    this.currentDraft = null
+
+    BrowserWindow.getAllWindows().forEach((window) => {
+      if (!window.webContents.isDestroyed()) {
+        window.webContents.send('agent-window-update', null)
+      }
+    })
   }
 
   private cleanupSoniox() {
