@@ -23,10 +23,10 @@ Respond with JSON only:
 }
 
 ## Rules
-- If the user asks you to write, reply, or compose something, ALWAYS call get_context first.
-- After getting context, call draft with your text, then immediately call write_to_text_field.
-- Use "respond" only when there's nothing to write (e.g., answering a factual question).
-- If a tool succeeded, do NOT call the same tool again.
+- ALWAYS call get_context first before writing anything.
+- After get_context, call draft with your text, then call write_to_text_field immediately.
+- Use "respond" ONLY when there is truly nothing to write (e.g., user asks a factual yes/no question and explicitly does NOT want text inserted).
+- After ANY tool succeeds, choose "respond" to finalize — do NOT call the same tool twice.
 - The current date is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`
 }
 
